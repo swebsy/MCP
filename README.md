@@ -89,6 +89,22 @@ extension's MCP Servers → Configure button, which opens it:
 - Linux `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
 - Windows `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
 
+**Cline CLI** (`npm i -g cline`) is a separate install from the extension, with
+its own config at `~/.cline/data/settings/cline_mcp_settings.json` and a nested
+`transport` block:
+
+```json
+{
+  "mcpServers": {
+    "swebsy": {
+      "transport": { "type": "stdio", "command": "npx", "args": ["-y", "@swebsy/mcp"] }
+    }
+  }
+}
+```
+
+Or let its own CLI write it: `cline mcp add swebsy --yes -- npx -y @swebsy/mcp`.
+
 ## Pairing
 
 Pair once per browser. After that, just ask your agent to build: if no Studio

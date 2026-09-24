@@ -26,6 +26,47 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  # ponytail: npm publishes from HERE now, not from the private monorepo that
+  # generates this repo. npm Trusted Publishing binds ONE repo + workflow
+  # filename per package, so the binding on npmjs.com is swebsy/MCP + ci.yml —
+  # renaming this file, or moving the job, breaks publishing until that setting
+  # is changed to match. Publishing from the public repo is also what makes
+  # --provenance truthful: the attestation names the repo the source lives in.
+  publish:
+    name: Publish @swebsy/mcp to npm
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC) — no NPM_TOKEN
+    steps:
+      - uses: actions/checkout@v5
+
+      # ponytail: no registry-url here on purpose — it writes an .npmrc
+      # _authToken placeholder that shadows OIDC auth.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+
+      # Trusted publishing needs npm >= 11.5.1, newer than some runner images ship.
+      - run: npm install -g npm@latest
+
+      # ponytail: the npm registry is the source of truth for "already
+      # published" — this repo re-syncs on every README change and must not
+      # republish. prepublishOnly runs the build, hence the install first.
+      - name: Publish if this version is new
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "@swebsy/mcp@$VERSION" version >/dev/null 2>&1; then
+            echo "@swebsy/mcp@$VERSION already published — nothing to do."
+            exit 0
+          fi
+          npm install
+          npm publish --access public --provenance
+
   # ponytail: the registry publish lives HERE, in the public mirror, not in the
   # monorepo that builds and npm-publishes the package. The registry derives the
   # namespace it grants from the OIDC token's repository_owner, so only a
@@ -33,7 +74,7 @@ jobs:
   # also why there is no token to store: OIDC replaces it.
   registry:
     name: Publish to the MCP registry
-    needs: build
+    needs: publish
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -70,14 +111,14 @@ jobs:
             exit 0
           fi
 
-          # npm publishes from the private monorepo, in the same run that pushed
-          # this sync, so it may not be live yet. The registry validates the npm
-          # package exists and carries a matching mcpName before it accepts the
-          # version, so wait for npm rather than race it.
-          for _ in $(seq 1 60); do
+          # The publish job upstream already put this version on npm, but the
+          # read path is CDN-fronted and lags the write by seconds. The registry
+          # validates the npm package exists and carries a matching mcpName
+          # before it accepts the version, so wait for it rather than race it.
+          for _ in $(seq 1 20); do
             if curl -fsS -o /dev/null "https://registry.npmjs.org/@swebsy/mcp/$VERSION"; then break; fi
             echo "waiting for @swebsy/mcp@$VERSION to appear on npm..."
-            sleep 15
+            sleep 6
           done
           curl -fsS -o /dev/null "https://registry.npmjs.org/@swebsy/mcp/$VERSION"
 
@@ -92,7 +133,7 @@ jobs:
   # makes the tag itself — nothing here needs push access or the deploy key.
   release:
     name: Cut a GitHub release
-    needs: build
+    needs: publish
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5

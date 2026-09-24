@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "swebsy": {
+      "command": "npx",
+      "args": ["-y", "@swebsy/mcp"]
+    }
+  }
+}

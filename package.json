@@ -1,6 +1,6 @@
 {
   "name": "@swebsy/mcp",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "type": "module",
   "description": "MCP server that lets a coding agent (Claude Code, Codex, Cursor, Windsurf, …) drive an open Swebsy Studio tab over a local 127.0.0.1 WebSocket relay.",
   "license": "MIT",
@@ -32,7 +32,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "build": "esbuild src/server.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/server.js --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

@@ -43,6 +43,8 @@ describe("setup", () => {
     );
   const clineFile = () =>
     join(clineDir(), "settings", "cline_mcp_settings.json");
+  const clineCliFile = () =>
+    join(home, ".cline", "data", "settings", "cline_mcp_settings.json");
 
   beforeEach(async () => {
     home = await mkdtemp(join(tmpdir(), "swebsy-setup-test-"));
@@ -61,6 +63,8 @@ describe("setup", () => {
     // Cline is detected by its extension folder, and its settings file lives a
     // level deeper than the folder that proves it is installed.
     await mkdir(clineDir(), { recursive: true });
+    // The Cline CLI is a separate install with its own config root.
+    await mkdir(join(home, ".cline"), { recursive: true });
     const { run, calls } = stubRun(["claude"]);
 
     const results = await setupClients(env(run));
@@ -72,6 +76,7 @@ describe("setup", () => {
       ["Windsurf", "skipped"],
       ["VS Code", "added"],
       ["Cline", "added"],
+      ["Cline CLI", "added"],
     ]);
     expect(calls).toContain(
       "claude mcp add -s user swebsy -- npx -y @swebsy/mcp"
@@ -92,6 +97,18 @@ describe("setup", () => {
     expect(JSON.parse(await readFile(clineFile(), "utf8"))).toEqual({
       mcpServers: {
         swebsy: { command: "npx", args: ["-y", "@swebsy/mcp"] },
+      },
+    });
+    // The CLI takes a nested `transport` block, not the extension's flat one.
+    expect(JSON.parse(await readFile(clineCliFile(), "utf8"))).toEqual({
+      mcpServers: {
+        swebsy: {
+          transport: {
+            type: "stdio",
+            command: "npx",
+            args: ["-y", "@swebsy/mcp"],
+          },
+        },
       },
     });
   });

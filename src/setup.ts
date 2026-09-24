@@ -190,6 +190,16 @@ export async function setupClients(env: SetupEnv): Promise<ClientResult[]> {
       existsSync(join(vscodeDir, "globalStorage", CLINE_EXTENSION)),
       stdio
     ),
+    // The Cline CLI (`npm i -g cline`) is a separate product from the VS Code
+    // extension: its own config path, and a nested `transport` shape instead of
+    // the flat one. Registering only the extension leaves CLI users unset up.
+    await viaJson(
+      "Cline CLI",
+      join(env.home, ".cline", "data", "settings", "cline_mcp_settings.json"),
+      "mcpServers",
+      existsSync(join(env.home, ".cline")),
+      { transport: { type: "stdio", ...stdio } }
+    ),
   ];
 }
 

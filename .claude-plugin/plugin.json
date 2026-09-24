@@ -1,0 +1,22 @@
+{
+  "name": "swebsy",
+  "description": "Build and edit real websites from Claude Code. Browse the template catalogue, create and open a site, rewrite sections, add and link pages, insert blocks, keep reusable symbols in sync, screenshot any viewport, and export static HTML/CSS/JS. Drives an open Swebsy Studio tab in your browser over a local 127.0.0.1 relay — no account, no API key, and no per-token AI fees.",
+  "version": "0.8.1",
+  "author": {
+    "name": "Swebsy",
+    "url": "https://swebsy.com"
+  },
+  "homepage": "https://swebsy.com",
+  "repository": "https://github.com/swebsy/MCP",
+  "license": "MIT",
+  "keywords": [
+    "website-builder",
+    "web-design",
+    "html",
+    "css",
+    "static-site",
+    "export",
+    "no-code",
+    "mcp"
+  ]
+}
