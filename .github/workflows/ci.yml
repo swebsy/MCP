@@ -25,3 +25,92 @@ jobs:
       - run: npm install
       - run: npm test
       - run: npm run build
+
+  # ponytail: the registry publish lives HERE, in the public mirror, not in the
+  # monorepo that builds and npm-publishes the package. The registry derives the
+  # namespace it grants from the OIDC token's repository_owner, so only a
+  # workflow running under the swebsy org can claim io.github.swebsy/*. That is
+  # also why there is no token to store: OIDC replaces it.
+  registry:
+    name: Publish to the MCP registry
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write # OIDC -> io.github.swebsy/*
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+
+      - name: Publish server.json if this version is new
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./server.json').version")
+
+          # The registry itself is the source of truth for "already published" —
+          # this repo re-syncs on every README change and must not republish.
+          # search= is a substring match, hence the exact-name check.
+          if node -e '
+            const [name, version] = process.argv.slice(1);
+            const url = "https://registry.modelcontextprotocol.io/v0/servers"
+              + `?search=${encodeURIComponent(name)}&version=${encodeURIComponent(version)}`;
+            fetch(url)
+              .then((r) => r.json())
+              .then((j) => {
+                const hit = (j.servers ?? []).some((s) => s.server.name === name);
+                process.exit(hit ? 0 : 1);
+              });
+          ' io.github.swebsy/mcp "$VERSION"; then
+            echo "io.github.swebsy/mcp@$VERSION is already listed — nothing to do."
+            exit 0
+          fi
+
+          # npm publishes from the private monorepo, in the same run that pushed
+          # this sync, so it may not be live yet. The registry validates the npm
+          # package exists and carries a matching mcpName before it accepts the
+          # version, so wait for npm rather than race it.
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null "https://registry.npmjs.org/@swebsy/mcp/$VERSION"; then break; fi
+            echo "waiting for @swebsy/mcp@$VERSION to appear on npm..."
+            sleep 15
+          done
+          curl -fsS -o /dev/null "https://registry.npmjs.org/@swebsy/mcp/$VERSION"
+
+          curl -fsSL https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz \
+            | tar -xz mcp-publisher
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
+
+  # Glama's Auto-Release rebuilds the listing on every GitHub release, so the
+  # mirror has to cut one. It re-syncs on any source change, not just a version
+  # bump, so this no-ops whenever the tag already exists. `gh release create`
+  # makes the tag itself — nothing here needs push access or the deploy key.
+  release:
+    name: Cut a GitHub release
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # --generate-notes diffs against the previous tag
+
+      - name: Create v<version> if it does not exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="v$(node -p "require('./package.json').version")"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG is already released — nothing to do."
+            exit 0
+          fi
+          gh release create "$TAG" --title "$TAG" --generate-notes
