@@ -115,7 +115,13 @@ jobs:
           # read path is CDN-fronted and lags the write by seconds. The registry
           # validates the npm package exists and carries a matching mcpName
           # before it accepts the version, so wait for it rather than race it.
-          for _ in $(seq 1 20); do
+          #
+          # Six minutes, not one: 0.8.1 took 9 of these polls (~55s), and npm's
+          # own publish output only promises "a few minutes". This job runs after
+          # npm and the GitHub release have already shipped, so a timeout here
+          # strands the registry behind a release that is otherwise complete —
+          # far more expensive than idling a runner for five extra minutes.
+          for _ in $(seq 1 60); do
             if curl -fsS -o /dev/null "https://registry.npmjs.org/@swebsy/mcp/$VERSION"; then break; fi
             echo "waiting for @swebsy/mcp@$VERSION to appear on npm..."
             sleep 6
