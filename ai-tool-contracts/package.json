@@ -1,0 +1,13 @@
+{
+  "name": "@swebsy/ai-tool-contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure, Node-safe AI tool schema contracts shared by the frontend AI Builder and the agent bridge. Zero runtime dependencies — no React, GrapesJS, DOM, Vite, or fetch.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  }
+}

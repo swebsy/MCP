@@ -1,0 +1,51 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.swebsy/mcp",
+  "description": "Build and edit real websites in Swebsy Studio from your coding agent \u2014 no per-token AI fees.",
+  "version": "0.8.0",
+  "websiteUrl": "https://docs.swebsy.com/settings/ai-coding-agent/",
+  "repository": {
+    "url": "https://github.com/swebsy/MCP",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@swebsy/mcp",
+      "version": "0.8.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SWEBSY_AGENT_PORT",
+          "description": "Port the local relay listens on (default 37373)",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "number"
+        },
+        {
+          "name": "SWEBSY_AGENT_DIR",
+          "description": "Where screenshots and exports land (default: .swebsy-agent in the workspace)",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "filepath"
+        },
+        {
+          "name": "SWEBSY_APP_URL",
+          "description": "Studio origin used for the pairing link (default https://studio.swebsy.com; set this for local or self-hosted Studio)",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "SWEBSY_NO_OPEN",
+          "description": "Set to skip auto-opening the pairing link in the browser",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

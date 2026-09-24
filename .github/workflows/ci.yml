@@ -1,0 +1,27 @@
+# Published to github.com/swebsy/MCP as .github/workflows/ci.yml by
+# scripts/mirror-mcp.sh. Edit it here, in the monorepo — the copy in the public
+# repo is regenerated on every sync.
+#
+# Its job is to prove the mirrored tree builds and tests standalone with plain
+# npm (no pnpm workspace), which is exactly what the MCP directories check.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+
+      - run: npm install
+      - run: npm test
+      - run: npm run build
