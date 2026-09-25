@@ -416,11 +416,10 @@ export const SWEBSY_PROMPT = {
   description: "Connect to Swebsy Studio and open a site to build.",
   text: [
     "Build with Swebsy Studio.",
-    "1. Call swebsy_status. If it is not connected, call swebsy_start_pairing and wait for the user to open the link.",
-    "2. Call swebsy_get_builder_guide and follow it.",
-    "3. Call swebsy_list_sites and ask the user which site to open, or offer to create one (swebsy_list_templates, swebsy_create_site).",
-    "4. Call swebsy_open_site or swebsy_create_site, then poll swebsy_status until its tab.siteId matches and tab.editorReady is true.",
-    "5. Build what the user asked for.",
+    "1. Call swebsy_get_builder_guide and follow it. If Studio isn't connected, this call opens it and connects by itself. If it still fails with not_connected, pass its message to the user, or call swebsy_start_pairing and give them the link.",
+    "2. Call swebsy_list_sites and ask the user which site to open, or offer to create one (swebsy_list_templates, swebsy_create_site).",
+    "3. Call swebsy_open_site or swebsy_create_site, then poll swebsy_status until its tab.siteId matches and tab.editorReady is true.",
+    "4. Build what the user asked for.",
   ].join("\n"),
 };
 

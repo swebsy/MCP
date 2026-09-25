@@ -157,6 +157,15 @@ describe("setup", () => {
     expect(out).toContain("✓ Cursor: added");
   });
 
+  it("ends with the same next steps Studio, the docs and swebsy.com show", async () => {
+    const lines: string[] = [];
+    await runSetup(env(stubRun(["claude"]).run), (l) => lines.push(l));
+
+    expect(lines.at(-1)).toBe(
+      '\nRestart your agent, then ask it: "Build me a landing page with Swebsy." The first request opens Studio and connects it.'
+    );
+  });
+
   it("changes nothing on a second run", async () => {
     await mkdir(join(home, ".cursor"));
     const first = stubRun(["claude"]);

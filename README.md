@@ -107,16 +107,21 @@ Or let its own CLI write it: `cline mcp add swebsy --yes -- npx -y @swebsy/mcp`.
 
 ## Pairing
 
-Pair once per browser. After that, just ask your agent to build: if no Studio
-tab is connected, the first tool call opens Studio and reconnects it by itself
-(it waits up to 20 seconds). The session is saved in
-`~/.swebsy/agent-<port>.session`, so it survives the bridge restarting.
+1. Run `npx -y @swebsy/mcp setup`
+2. Restart your agent.
+3. Ask it: "Build me a landing page with Swebsy." The first request opens Studio and connects it.
+
+You connect once per browser. Whenever no Studio tab is connected, the next tool
+call opens Studio and reconnects it by itself (it waits up to 20 seconds). The
+session is saved in `~/.swebsy/agent-<port>.session`, so it survives the bridge
+restarting.
 
 Claude Code also lists a `/swebsy:swebsy (MCP)` prompt that walks the agent
 through connecting and opening a site. Other agents show MCP prompts their own
 way, if at all.
 
-To pair by hand:
+To pair by hand (the browser didn't open, Swebsy runs in a different browser,
+or `SWEBSY_NO_OPEN=1` is set):
 
 1. Ask your agent to run the `swebsy_start_pairing` tool. It opens the pairing
    link in your default browser automatically, and also returns the link, raw
@@ -125,8 +130,8 @@ To pair by hand:
    it is used. (Set `SWEBSY_NO_OPEN=1` to skip the auto-open and just get the
    link back.)
 3. If the browser didn't open — or Swebsy is running in a different browser —
-   open the returned link there yourself, or use the fallback fields in **Global
-   settings → Coding agents**: paste the raw code, leave the port at **37373**
+   open the returned link there yourself, or use the fallback fields under
+   **Global settings → Coding agents → Didn't connect? Pair by hand**: paste the raw code, leave the port at **37373**
    unless you changed `SWEBSY_AGENT_PORT`, and click **Connect**.
 4. Prompt your agent as usual — it drives the tab through the `swebsy_*` tools.
 

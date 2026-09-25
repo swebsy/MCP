@@ -232,7 +232,7 @@ export async function runSetup(
     );
   } else {
     log(
-      "\nRestart your agent, then ask it to build with Swebsy. The first tool call opens Studio and connects it."
+      '\nRestart your agent, then ask it: "Build me a landing page with Swebsy." The first request opens Studio and connects it.'
     );
   }
   return results.some((r) => r.outcome === "failed") ? 1 : 0;
