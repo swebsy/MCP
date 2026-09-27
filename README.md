@@ -12,8 +12,9 @@
 Claude Code, Codex, Cursor, Windsurf, Cline, GitHub Copilot — or any agent that
 speaks the Model Context Protocol — drive an open [Swebsy](https://swebsy.com)
 Studio tab. Your agent discovers templates, creates and opens sites, renames projects,
-adds sections, edits content, switches pages, captures screenshots, and exports
-the finished site, all over a local `127.0.0.1` WebSocket relay. Nothing is proxied through our servers, and Studio redacts
+adds sections, edits content, switches pages, sets every site setting (SEO,
+favicon, fonts, analytics, robots.txt, deploy target), captures screenshots, and
+exports the finished site, all over a local `127.0.0.1` WebSocket relay. Nothing is proxied through our servers, and Studio redacts
 secrets (API keys, deploy tokens, chat history) before anything crosses the
 bridge. Your coding agent's own service and privacy policy still apply to the
 non-secret content it receives.

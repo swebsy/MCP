@@ -384,13 +384,24 @@ describe("upload_asset", () => {
     });
   });
 
-  it("rejects a file type outside the allowed image set", async () => {
+  it("relays a woff2 font with its font MIME type", async () => {
+    const font = join(tmp, "Panchang-700.woff2");
+    writeFileSync(font, "wOF2");
+    const { relay, calls } = fakeRelay();
+    await dispatchTool(relay, "swebsy_upload_asset", { path: font });
+    expect(calls[0].args).toMatchObject({
+      filename: "Panchang-700.woff2",
+      mimeType: "font/woff2",
+    });
+  });
+
+  it("rejects a file type outside the allowed set", async () => {
     const evil = join(tmp, "payload.html");
     writeFileSync(evil, "<script>alert(1)</script>");
     const { relay, calls } = fakeRelay();
     await expect(
       dispatchTool(relay, "swebsy_upload_asset", { path: evil })
-    ).rejects.toThrow(/Unsupported image type/i);
+    ).rejects.toThrow(/Unsupported file type/i);
     expect(calls).toHaveLength(0);
   });
 

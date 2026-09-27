@@ -315,7 +315,7 @@ export const NET_NEW_TOOLS: readonly McpToolDef[] = [
   {
     name: "swebsy_upload_asset",
     description:
-      "Upload a local image file into the open site's asset library and return the `src` to use on an `image` component. This is the ONLY way to get your own imagery (screenshots, logos, textures, mockups) into a site — an `image` with an empty src gets a random stock photo instead. Reads the file from the agent's own filesystem, so pass a path you can see (for example a screenshot you just captured). The asset is stored in the project and travels with static export and project JSON.",
+      "Upload a local image or font file into the open site and return its `assetId` and `src`. Images go in the asset library for `image` components; fonts are stored for `update_settings` fonts.custom. This is the ONLY way to get your own imagery (screenshots, logos, textures, mockups) into a site — an `image` with an empty src gets a random stock photo instead. Reads the file from the agent's own filesystem, so pass a path you can see (for example a screenshot you just captured). The asset is stored in the project and travels with static export and project JSON.",
     inputSchema: {
       type: "object",
       properties: {
@@ -323,7 +323,7 @@ export const NET_NEW_TOOLS: readonly McpToolDef[] = [
           type: "string",
           minLength: 1,
           description:
-            "Absolute path to the image on the agent's machine. Allowed types: .png, .jpg, .jpeg, .webp, .gif, .avif, .svg. Max 10 MB — re-encode larger files first. Prefer .svg for logos and other flat vector art so it stays crisp at any size; uploaded SVG is sanitized (scripts and external references are stripped).",
+            "Absolute path to the file on the agent's machine. Images: .png, .jpg, .jpeg, .webp, .gif, .avif, .svg. Fonts (for `update_settings` fonts.custom, pass the returned assetId): .woff2, .woff, .ttf, .otf. Max 10 MB — re-encode larger files first. Prefer .svg for logos and other flat vector art so it stays crisp at any size; uploaded SVG is sanitized (scripts and external references are stripped).",
         },
         filename: {
           type: "string",

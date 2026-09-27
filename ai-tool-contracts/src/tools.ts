@@ -312,7 +312,7 @@ export const TOOL_DELETE_SECTION = {
 export const TOOL_UPDATE_SETTINGS = {
   name: "update_settings",
   description:
-    "Update site settings — SEO title/description, site URL, structured data (JSON-LD), per-page SEO overrides, language, theme tokens (light + dark), Google fonts, dark mode toggle, and site-wide custom CSS for component-level restyling (globalTheme.customTailwindConfig). Provide ONLY the fields that change. `general`/`seo` are SITE-WIDE; use `page` to change ONE page. Also used to match the theme to a reference IMAGE's vibe: sample its palette into brand/surface tokens and ALWAYS set BOTH light and dark variants.",
+    'Update site settings — SEO title/description, site URL, structured data (JSON-LD), per-page SEO overrides, language/direction, theme tokens (light + dark), type scale, animation defaults, Google and uploaded fonts, dark mode toggle, site-wide custom CSS for component-level restyling (globalTheme.customTailwindConfig), favicon, robots.txt/sitemap/service worker/security headers/image optimization (performance), analytics ids, custom head/body code (advanced), the "Made with Swebsy" badge (branding) and the deploy target (deploy). Provide ONLY the fields that change. `general`/`seo` are SITE-WIDE; use `page` to change ONE page. Also used to match the theme to a reference IMAGE\'s vibe: sample its palette into brand/surface tokens and ALWAYS set BOTH light and dark variants.',
   input_schema: {
     type: "object",
     properties: {
@@ -326,6 +326,11 @@ export const TOOL_UPDATE_SETTINGS = {
           title: { type: "string" },
           description: { type: "string" },
           language: { type: "string" },
+          direction: {
+            type: "string",
+            enum: ["ltr", "rtl"],
+            description: "Text direction; `rtl` for Arabic, Hebrew, Persian.",
+          },
           author: { type: "string" },
           keywords: { type: "array", items: { type: "string" } },
         },
@@ -354,6 +359,25 @@ export const TOOL_UPDATE_SETTINGS = {
             type: "string",
             description:
               "Overrides `ogImage` on X only. Omit unless the two images genuinely differ.",
+          },
+          ogType: {
+            type: "string",
+            enum: ["website", "article", "blog", "product"],
+          },
+          twitterCard: {
+            type: "string",
+            enum: ["summary", "summary_large_image", "app", "player"],
+          },
+          robots: {
+            type: "string",
+            enum: [
+              "index, follow",
+              "noindex, nofollow",
+              "index, nofollow",
+              "noindex, follow",
+            ],
+            description:
+              "Site-wide robots meta tag. For robots.txt use `performance.customRobotsTxt`; for one page use `page.robots`.",
           },
           generateLlmsTxt: {
             type: "boolean",
@@ -420,7 +444,7 @@ export const TOOL_UPDATE_SETTINGS = {
       fonts: {
         type: "object",
         description:
-          "Google fonts to add/replace. Pass the full desired list — the array replaces what was there.",
+          "Fonts to add/replace. Each array you pass replaces what was there, so send the full desired list; an omitted array is kept.",
         properties: {
           google: {
             type: "array",
@@ -430,8 +454,52 @@ export const TOOL_UPDATE_SETTINGS = {
                 family: { type: "string" },
                 variants: { type: "array", items: { type: "string" } },
                 subsets: { type: "array", items: { type: "string" } },
+                opsz: {
+                  type: "array",
+                  description:
+                    "Optical-size axis range [min, max] for variable fonts that expose `opsz` (e.g. [9, 144] for Fraunces).",
+                  items: { type: "number" },
+                  minItems: 2,
+                  maxItems: 2,
+                },
               },
               required: ["family"],
+              additionalProperties: false,
+            },
+          },
+          custom: {
+            type: "array",
+            description:
+              "Self-hosted font families. Upload each file with `upload_asset` first and use the returned asset id. Then set typography.fontFamily to a stack starting with `family`.",
+            items: {
+              type: "object",
+              properties: {
+                family: { type: "string" },
+                variations: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: {
+                        type: "string",
+                        description: "Asset id from `upload_asset`.",
+                      },
+                      weight: {
+                        type: "string",
+                        description: "'100' through '900'.",
+                      },
+                      style: { type: "string", enum: ["normal", "italic"] },
+                      format: {
+                        type: "string",
+                        enum: ["woff2", "woff", "truetype", "opentype"],
+                      },
+                    },
+                    required: ["id", "weight", "style", "format"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["family", "variations"],
               additionalProperties: false,
             },
           },
@@ -510,6 +578,61 @@ export const TOOL_UPDATE_SETTINGS = {
                 description:
                   "Which stack body text uses: 'sans' | 'serif' | 'mono'. Defaults to 'sans'.",
               },
+              baseSize: {
+                type: "string",
+                description:
+                  "Modular type scale base, e.g. '1rem' or '17px'. Every text-* size is derived as baseSize × scaleRatio^n. Send with `scaleRatio`.",
+              },
+              scaleRatio: {
+                type: "number",
+                description:
+                  "Modular type scale ratio, e.g. 1.2 (minor third, dense UI), 1.25 (default), 1.333 (editorial), 1.5 (dramatic display).",
+              },
+              fontWeight: {
+                type: "object",
+                description:
+                  "Numeric weight behind each weight utility, e.g. { bold: '800' }.",
+                properties: Object.fromEntries(
+                  ["light", "normal", "medium", "semibold", "bold"].map((k) => [
+                    k,
+                    { type: "string" },
+                  ])
+                ),
+                additionalProperties: false,
+              },
+              lineHeight: {
+                type: "object",
+                description: "Unitless line heights, e.g. { tight: '1.1' }.",
+                properties: Object.fromEntries(
+                  ["tight", "normal", "relaxed"].map((k) => [
+                    k,
+                    { type: "string" },
+                  ])
+                ),
+                additionalProperties: false,
+              },
+            },
+            additionalProperties: false,
+          },
+          animation: {
+            type: "object",
+            description:
+              "Site-wide defaults for scroll-reveal animations (`animate_page`).",
+            properties: {
+              duration: {
+                type: "string",
+                description: "CSS time, e.g. '500ms'.",
+              },
+              easing: {
+                type: "string",
+                description:
+                  "CSS easing, e.g. 'cubic-bezier(0.22, 1, 0.36, 1)'.",
+              },
+              once: {
+                type: "boolean",
+                description:
+                  "Animate only the first time an element enters the viewport.",
+              },
             },
             additionalProperties: false,
           },
@@ -554,6 +677,195 @@ export const TOOL_UPDATE_SETTINGS = {
           },
         },
         additionalProperties: true,
+      },
+      performance: {
+        type: "object",
+        description:
+          "Crawling files, service worker, security headers and export-time image optimization.",
+        properties: {
+          generateRobotsTxt: { type: "boolean" },
+          customRobotsTxt: {
+            type: "string",
+            description:
+              "Custom robots.txt body. It REPLACES the whole generated file, so include `User-agent`, every rule and every `Sitemap:` line, including the default `<siteUrl>/sitemap.xml`. Read the current settings first and extend them. Empty string restores the generated file. Requires `generateRobotsTxt: true`.",
+          },
+          generateSitemap: {
+            type: "boolean",
+            description:
+              "Emit /sitemap.xml from the page list (needs `seo.siteUrl`).",
+          },
+          enableServiceWorker: {
+            type: "boolean",
+            description: "Offline caching service worker in the export.",
+          },
+          preloadCritical: {
+            type: "boolean",
+            description: "Preload critical fonts and CSS.",
+          },
+          smoothScrolling: { type: "boolean" },
+          contentSecurityPolicy: {
+            type: "string",
+            description:
+              "Content-Security-Policy value, emitted as a meta tag. A wrong policy breaks the live site's scripts, fonts or images, so only set it when asked.",
+          },
+          referrerPolicy: {
+            type: "string",
+            enum: [
+              "",
+              "no-referrer",
+              "no-referrer-when-downgrade",
+              "origin",
+              "origin-when-cross-origin",
+              "strict-origin-when-cross-origin",
+            ],
+            description: "Empty string = browser default.",
+          },
+          xFrameOptions: {
+            type: "string",
+            enum: ["", "DENY", "SAMEORIGIN"],
+          },
+          imageOptimization: {
+            type: "object",
+            description:
+              "Re-encode images at export/deploy. Originals are never touched. Send only the keys that change.",
+            properties: {
+              preset: {
+                type: "string",
+                enum: ["off", "balanced", "maximum", "custom"],
+                description:
+                  "'balanced' = WebP q80 ≤2560px (default); 'maximum' = smallest files (AVIF); 'custom' uses format/quality/maxDimension.",
+              },
+              format: {
+                type: "string",
+                enum: ["webp", "avif"],
+                description: "Only used when preset is 'custom'.",
+              },
+              quality: {
+                type: "number",
+                minimum: 1,
+                maximum: 100,
+                description: "Only used when preset is 'custom'.",
+              },
+              maxDimension: {
+                type: "number",
+                minimum: 0,
+                description: "Longest edge in px; 0 = don't resize.",
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+        additionalProperties: false,
+      },
+      analytics: {
+        type: "object",
+        description:
+          "Analytics ids — the snippet is generated from the id. Empty string removes one.",
+        properties: {
+          googleAnalyticsId: {
+            type: "string",
+            description: "GA4 measurement id, e.g. 'G-XXXXXXXXXX'.",
+          },
+          googleTagManagerId: {
+            type: "string",
+            description: "e.g. 'GTM-XXXXXXX'.",
+          },
+          facebookPixelId: { type: "string" },
+          hotjarId: { type: "string" },
+          customAnalytics: {
+            type: "string",
+            description:
+              "JavaScript BODY (no <script> tag; it is wrapped in one for you) for tracking the id fields can't express. A provider installed with a `<script src=…>` tag (Plausible, Fathom, PostHog) goes in `advanced.customHeadCode` instead: pasted here, its tag lands inside another <script> and never loads. REPLACES the previous value. It runs on every visitor's page, so only write code the user gave you or asked for; the Studio flags every AI change to it.",
+          },
+        },
+        additionalProperties: false,
+      },
+      advanced: {
+        type: "object",
+        description:
+          "RAW site code, the last resort. Use globalTheme.customTailwindConfig for CSS and seo.jsonLd for structured data. Each field REPLACES the previous value, so read the current settings and send the full code. It runs on every visitor's page, and the Studio flags every agent change to it.",
+        properties: {
+          customHeadCode: {
+            type: "string",
+            description:
+              "Markup injected at the end of <head> (verification meta tags, third-party embeds).",
+          },
+          customBodyCode: {
+            type: "string",
+            description: "Markup injected at the end of <body>.",
+          },
+          customCSS: {
+            type: "string",
+            description:
+              "Legacy stylesheet. Prefer globalTheme.customTailwindConfig.",
+          },
+          customJS: {
+            type: "string",
+            description: "Script body (no <script> tag) run on every page.",
+          },
+        },
+        additionalProperties: false,
+      },
+      branding: {
+        type: "object",
+        description:
+          'The "Made with Swebsy" badge. Turning it off only takes effect on plans that include badge removal; free plans keep the badge on export regardless.',
+        properties: { enabled: { type: "boolean" } },
+        required: ["enabled"],
+        additionalProperties: false,
+      },
+      favicon: {
+        type: "object",
+        description:
+          "Set the favicon from one square image. Upload it with `upload_asset` first (PNG or SVG, at least 512x512), then pass its asset id. Every size (16px up to 512px, Apple touch, Android, MS tile) is generated from it.",
+        properties: { assetId: { type: "string" } },
+        required: ["assetId"],
+        additionalProperties: false,
+      },
+      deploy: {
+        type: "object",
+        description:
+          "Deploy target configuration. API tokens are never settable here: the user pastes them in Settings → Deployment. Send only the keys that change.",
+        properties: {
+          defaultPlatform: {
+            type: "string",
+            enum: ["swebsy-hosting", "github-pages", "cloudflare-pages"],
+          },
+          github: {
+            type: "object",
+            properties: {
+              repo: { type: "string", description: "'owner/name'." },
+              branch: {
+                type: "string",
+                description:
+                  "Branch that receives the build. Default gh-pages.",
+              },
+              customDomain: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+          cloudflare: {
+            type: "object",
+            properties: {
+              accountId: { type: "string" },
+              projectName: { type: "string" },
+              customDomain: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+          swebsy: {
+            type: "object",
+            properties: {
+              subdomain: {
+                type: "string",
+                description:
+                  "Preferred <subdomain>.swebsy.site for the next publish.",
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+        additionalProperties: false,
       },
     },
     required: ["summary"],

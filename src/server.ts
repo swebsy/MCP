@@ -232,6 +232,12 @@ const UPLOAD_MIME_BY_EXT: Record<string, string> = {
   // SVG is a script host, but the tab sanitizes it on the way into storage
   // (frontend sanitizeSvg.ts), the same as a human drag-and-drop upload.
   ".svg": "image/svg+xml",
+  // Fonts for `fonts.custom`. The tab stores them outside the image library,
+  // the same as a human upload in the font panel.
+  ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".ttf": "font/ttf",
+  ".otf": "font/otf",
 };
 // ponytail: base64 rides in one WS frame, so cap it. Chunk like artifacts do if
 // someone genuinely needs bigger images.
@@ -245,7 +251,7 @@ export async function buildUploadPayload(args: unknown): Promise<unknown> {
   if (typeof filePath !== "string" || !filePath.trim()) {
     throw new BridgeError(
       "validation_failed",
-      "upload_asset requires `path` — an absolute path to an image file."
+      "upload_asset requires `path` — an absolute path to an image or font file."
     );
   }
   if (!isAbsolute(filePath)) {
@@ -259,7 +265,7 @@ export async function buildUploadPayload(args: unknown): Promise<unknown> {
   if (!mimeType) {
     throw new BridgeError(
       "validation_failed",
-      `Unsupported image type "${ext || "(none)"}". Allowed: ${Object.keys(
+      `Unsupported file type "${ext || "(none)"}". Allowed: ${Object.keys(
         UPLOAD_MIME_BY_EXT
       ).join(", ")}.`
     );

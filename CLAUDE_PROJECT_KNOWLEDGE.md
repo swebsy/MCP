@@ -102,10 +102,10 @@ guidance on animation, page composition, copywriting, forms, and nav.
 | `swebsy_insert_block` | Drop in a catalog block by id. |
 | `swebsy_replace_page_content` | Replace a whole page's content. |
 | `swebsy_create_page` / `swebsy_link_page` | Add a page; point a link at a page. |
-| `swebsy_update_settings` | Theme tokens, fonts, brand colors, SEO, custom CSS. |
+| `swebsy_update_settings` | Every site setting: theme, fonts, SEO, favicon, robots.txt/sitemap, analytics, custom code, deploy target (never tokens). |
 | `swebsy_animate_page` | Apply scroll/entrance animation across a page. |
 | `swebsy_commit_design_direction` | Lock an art direction from Swebsy's own catalog before building. Do this first; a second source of art direction produces incoherent pages. |
-| `swebsy_upload_asset` | Put a local image into the asset library and get its `src`. |
+| `swebsy_upload_asset` | Put a local image (returns its `src`) or font (returns the id for `fonts.custom`) into the site. |
 | `swebsy_list_assets` | List managed assets with whole-project usage counts. |
 | `swebsy_delete_asset` | Delete a managed asset, refusing live references unless forced. |
 
