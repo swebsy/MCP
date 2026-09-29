@@ -197,6 +197,61 @@ export const TOOL_LINK_PAGE = {
   },
 } as const;
 
+export const TOOL_UPDATE_PAGE = {
+  name: "update_page",
+  description:
+    "Rename a page and/or change its URL slug — the Pages panel's rename. Links that pointed at the old `./slug.html` on every page follow the new slug. The home page's `index` slug is locked (its display name can still change).",
+  input_schema: {
+    type: "object",
+    properties: {
+      page: {
+        type: "string",
+        description: "Page id, name or current slug (from `list_pages`).",
+      },
+      name: { type: "string", description: "New display name." },
+      fileName: {
+        type: "string",
+        description:
+          "New URL slug without .html (e.g. 'pricing'). Sanitized and de-duplicated against other pages.",
+      },
+    },
+    required: ["page"],
+    additionalProperties: false,
+  },
+} as const;
+
+export const TOOL_DUPLICATE_PAGE = {
+  name: "duplicate_page",
+  description:
+    "Copy a page (content, classes and styles) into a new page and select the copy. Returns the new page's id and fileName. Use it to start a page from an existing layout instead of rebuilding it.",
+  input_schema: {
+    type: "object",
+    properties: {
+      page: { type: "string", description: "Page id, name or slug to copy." },
+      name: {
+        type: "string",
+        description: 'Name for the copy. Defaults to "<name> (copy)".',
+      },
+    },
+    required: ["page"],
+    additionalProperties: false,
+  },
+} as const;
+
+export const TOOL_DELETE_PAGE = {
+  name: "delete_page",
+  description:
+    "Delete a page. The home page (index) and a site's last page can't be deleted. Links to the deleted page are left in place — repoint them with `link_page` or delete them.",
+  input_schema: {
+    type: "object",
+    properties: {
+      page: { type: "string", description: "Page id, name or slug to delete." },
+    },
+    required: ["page"],
+    additionalProperties: false,
+  },
+} as const;
+
 export const TOOL_ADD_SECTION = {
   name: "add_section",
   description:
@@ -305,6 +360,58 @@ export const TOOL_DELETE_SECTION = {
       },
     },
     required: ["summary"],
+    additionalProperties: false,
+  },
+} as const;
+
+export const TOOL_MOVE_SECTION = {
+  name: "move_section",
+  description:
+    "Move a component to just before or after another component on the current page — reorder sections, swap columns, lift a CTA above the footer. The component keeps its id, classes and id-styles. ALWAYS use this to reorder; delete + re-add loses the component's styles.",
+  input_schema: {
+    type: "object",
+    properties: {
+      targetPath: {
+        type: "array",
+        description:
+          "Path (from the most recent `read_page`) of the component to move.",
+        items: { type: "integer", minimum: 0 },
+        minItems: 1,
+      },
+      anchorPath: {
+        type: "array",
+        description:
+          "Path (from the same `read_page`) of the component to place it next to.",
+        items: { type: "integer", minimum: 0 },
+        minItems: 1,
+      },
+      position: {
+        type: "string",
+        enum: ["before", "after"],
+        description: "Which side of the anchor. Default after.",
+      },
+    },
+    required: ["targetPath", "anchorPath"],
+    additionalProperties: false,
+  },
+} as const;
+
+export const TOOL_DUPLICATE_SECTION = {
+  name: "duplicate_section",
+  description:
+    "Copy a component (with its classes and styles) and insert the copy right after it. Paths after it shift by one — call `read_page` before the next path-based edit.",
+  input_schema: {
+    type: "object",
+    properties: {
+      targetPath: {
+        type: "array",
+        description:
+          "Path (from the most recent `read_page`) of the component to copy.",
+        items: { type: "integer", minimum: 0 },
+        minItems: 1,
+      },
+    },
+    required: ["targetPath"],
     additionalProperties: false,
   },
 } as const;
@@ -422,6 +529,14 @@ export const TOOL_UPDATE_SETTINGS = {
           twitterTitle: { type: "string" },
           twitterDescription: { type: "string" },
           twitterImage: { type: "string" },
+          ogType: {
+            type: "string",
+            enum: ["website", "article", "blog", "product"],
+          },
+          twitterCard: {
+            type: "string",
+            enum: ["summary", "summary_large_image", "app", "player"],
+          },
           canonicalUrl: {
             type: "string",
             description:
@@ -1166,9 +1281,14 @@ export const ALL_TOOLS = [
   TOOL_COMMIT_DESIGN_DIRECTION,
   TOOL_CREATE_PAGE,
   TOOL_LINK_PAGE,
+  TOOL_UPDATE_PAGE,
+  TOOL_DUPLICATE_PAGE,
+  TOOL_DELETE_PAGE,
   TOOL_ADD_SECTION,
   TOOL_EDIT_SECTION,
   TOOL_DELETE_SECTION,
+  TOOL_MOVE_SECTION,
+  TOOL_DUPLICATE_SECTION,
   TOOL_INSERT_BLOCK,
   TOOL_UPDATE_SETTINGS,
   TOOL_ANIMATE_PAGE,

@@ -40,9 +40,14 @@ export const AGENT_TOOL_ALLOWLIST = [
   "replace_page_content",
   "create_page",
   "link_page",
+  "update_page",
+  "duplicate_page",
+  "delete_page",
   "add_section",
   "edit_section",
   "delete_section",
+  "move_section",
+  "duplicate_section",
   "insert_block",
   "update_settings",
   "commit_design_direction",
@@ -245,6 +250,85 @@ export const NET_NEW_TOOLS: readonly McpToolDef[] = [
     },
   },
   {
+    name: "swebsy_detach_symbol",
+    description:
+      "Turn ONE symbol instance on the current page back into a plain component, so it can be edited on its own. The symbol and its other instances stay linked. Use it when one page needs a variant of the shared navbar/footer.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        targetPath: {
+          type: "array",
+          description: "Path of the symbol instance, from read_page.",
+          items: { type: "integer", minimum: 0 },
+          minItems: 1,
+        },
+      },
+      required: ["targetPath"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "swebsy_rename_symbol",
+    description: "Rename a symbol (the name shown in the Symbols panel).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        symbolId: {
+          type: "string",
+          description: "Symbol id from list_symbols.",
+        },
+        name: { type: "string", minLength: 1 },
+      },
+      required: ["symbolId", "name"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "swebsy_delete_symbol",
+    description:
+      "Delete a symbol. Every instance is DETACHED first and stays on its page as a plain component — nothing disappears from the site. To also remove the copies, delete_section them.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        symbolId: {
+          type: "string",
+          description: "Symbol id from list_symbols.",
+        },
+      },
+      required: ["symbolId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "swebsy_undo",
+    description:
+      "Revert your own last editing tool call(s) this session (add/edit/delete/move/duplicate_section, insert_block, update_settings, page tools…), newest first. Does NOT undo symbol or asset tools. Refuses (returns `blocked`) when a page, CSS or settings it would restore has been edited since, so hand edits are never overwritten. Paths may shift — call read_page afterwards.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        steps: {
+          type: "integer",
+          minimum: 1,
+          maximum: 20,
+          description: "How many tool calls to revert. Default 1.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "swebsy_redo",
+    description:
+      "Re-apply tool calls reverted by swebsy_undo, oldest-undone last. Cleared by any new edit.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        steps: { type: "integer", minimum: 1, maximum: 20 },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "swebsy_get_builder_guide",
     description:
       "Load the static Swebsy builder guidance (component system, theme classes, conventions) that the in-app AI Builder is primed with.",
@@ -315,7 +399,7 @@ export const NET_NEW_TOOLS: readonly McpToolDef[] = [
   {
     name: "swebsy_upload_asset",
     description:
-      "Upload a local image or font file into the open site and return its `assetId` and `src`. Images go in the asset library for `image` components; fonts are stored for `update_settings` fonts.custom. This is the ONLY way to get your own imagery (screenshots, logos, textures, mockups) into a site — an `image` with an empty src gets a random stock photo instead. Reads the file from the agent's own filesystem, so pass a path you can see (for example a screenshot you just captured). The asset is stored in the project and travels with static export and project JSON.",
+      "Upload a local image, font, video, audio or PDF file into the open site and return its `assetId`, `src` and a `usage` snippet. Images go in the asset library for `image` components, video for `video` components (`attributes.src`), audio for `audio`, PDFs as a link `href`; fonts are stored for `update_settings` fonts.custom. This is the ONLY way to get your own imagery (screenshots, logos, textures, mockups) into a site — an `image` with an empty src gets a random stock photo instead. Reads the file from the agent's own filesystem, so pass a path you can see (for example a screenshot you just captured). The asset is stored in the project and travels with static export and project JSON.",
     inputSchema: {
       type: "object",
       properties: {
@@ -323,7 +407,7 @@ export const NET_NEW_TOOLS: readonly McpToolDef[] = [
           type: "string",
           minLength: 1,
           description:
-            "Absolute path to the file on the agent's machine. Images: .png, .jpg, .jpeg, .webp, .gif, .avif, .svg. Fonts (for `update_settings` fonts.custom, pass the returned assetId): .woff2, .woff, .ttf, .otf. Max 10 MB — re-encode larger files first. Prefer .svg for logos and other flat vector art so it stays crisp at any size; uploaded SVG is sanitized (scripts and external references are stripped).",
+            "Absolute path to the file on the agent's machine. Images: .png, .jpg, .jpeg, .webp, .gif, .avif, .svg. Fonts (for `update_settings` fonts.custom, pass the returned assetId): .woff2, .woff, .ttf, .otf. Video: .mp4, .m4v, .webm, .mov, .ogv. Audio: .mp3, .m4a, .wav, .ogg. Documents: .pdf. Max 10 MB (the hosting per-file cap) — re-encode larger files first (for video: H.264 .mp4, 1080p or less, `-movflags +faststart`). Prefer .svg for logos and other flat vector art so it stays crisp at any size; uploaded SVG is sanitized (scripts and external references are stripped).",
         },
         filename: {
           type: "string",

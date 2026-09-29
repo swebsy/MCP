@@ -238,9 +238,22 @@ const UPLOAD_MIME_BY_EXT: Record<string, string> = {
   ".woff": "font/woff",
   ".ttf": "font/ttf",
   ".otf": "font/otf",
+  // Media for `video` / `audio` components and downloadable PDFs.
+  ".mp4": "video/mp4",
+  ".m4v": "video/mp4",
+  ".webm": "video/webm",
+  ".mov": "video/quicktime",
+  ".ogv": "video/ogg",
+  ".mp3": "audio/mpeg",
+  ".m4a": "audio/mp4",
+  ".wav": "audio/wav",
+  ".ogg": "audio/ogg",
+  ".pdf": "application/pdf",
 };
-// ponytail: base64 rides in one WS frame, so cap it. Chunk like artifacts do if
-// someone genuinely needs bigger images.
+// ponytail: base64 rides in one WS frame (16 MB broker cap), and Swebsy Hosting
+// refuses any published file over 10 MB anyway, so chunking would only produce
+// files that fail at publish. Bigger needs chunked upload + a higher publish
+// cap + asset bytes moved out of the inline project doc.
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 export async function buildUploadPayload(args: unknown): Promise<unknown> {
@@ -251,7 +264,7 @@ export async function buildUploadPayload(args: unknown): Promise<unknown> {
   if (typeof filePath !== "string" || !filePath.trim()) {
     throw new BridgeError(
       "validation_failed",
-      "upload_asset requires `path` — an absolute path to an image or font file."
+      "upload_asset requires `path` — an absolute path to an image, font, video, audio or PDF file."
     );
   }
   if (!isAbsolute(filePath)) {
@@ -284,7 +297,11 @@ export async function buildUploadPayload(args: unknown): Promise<unknown> {
       "validation_failed",
       `${filePath} is ${(bytes.byteLength / 1_048_576).toFixed(1)} MB; the limit is ${
         MAX_UPLOAD_BYTES / 1_048_576
-      } MB. Re-encode or resize it first.`
+      } MB (the Swebsy Hosting per-file cap). ${
+        mimeType.startsWith("video/")
+          ? "Re-encode it first (e.g. `ffmpeg -i in.mp4 -c:v libx264 -crf 28 -vf scale=-2:1080 -an -movflags +faststart out.mp4`), or set a hosted video URL as the video's `attributes.src` instead of uploading."
+          : "Re-encode or resize it first."
+      }`
     );
   }
   // A display name with no extension ("Pulsar workspace") makes the site

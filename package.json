@@ -1,6 +1,6 @@
 {
   "name": "@swebsy/mcp",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "type": "module",
   "description": "MCP server that lets a coding agent (Claude Code, Codex, Cursor, Windsurf, …) drive an open Swebsy Studio tab over a local 127.0.0.1 WebSocket relay.",
   "license": "MIT",

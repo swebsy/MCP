@@ -423,6 +423,20 @@ describe("upload_asset", () => {
     ).rejects.toThrow(/limit is 10 MB/i);
     expect(calls).toHaveLength(0);
   });
+
+  it("accepts an mp4 and tells an oversized video how to re-encode", async () => {
+    const clip = join(tmp, "clip.mp4");
+    writeFileSync(clip, Buffer.from([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70]));
+    const { relay, calls } = fakeRelay();
+    await dispatchTool(relay, "swebsy_upload_asset", { path: clip });
+    expect((calls[0].args as { mimeType: string }).mimeType).toBe("video/mp4");
+
+    const big = join(tmp, "big.mp4");
+    writeFileSync(big, Buffer.alloc(10 * 1024 * 1024 + 1));
+    await expect(
+      dispatchTool(relay, "swebsy_upload_asset", { path: big })
+    ).rejects.toThrow(/ffmpeg/);
+  });
 });
 
 describe("automatic recovery when no tab is attached", () => {
