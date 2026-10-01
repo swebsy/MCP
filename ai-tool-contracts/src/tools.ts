@@ -161,7 +161,7 @@ export const TOOL_CREATE_PAGE = {
       fileName: {
         type: "string",
         description:
-          "Optional URL slug without .html (e.g. 'about'). Defaults to a slug derived from `name`; auto-deduplicated against existing pages.",
+          "Optional URL slug without .html (e.g. 'about'). Use `/` to put the page in a folder: 'blog/first-post' is served at /blog/first-post, 'docs/index' at /docs/. Defaults to a flat slug derived from `name`; auto-deduplicated against existing pages.",
       },
       select: {
         type: "boolean",
@@ -212,7 +212,7 @@ export const TOOL_UPDATE_PAGE = {
       fileName: {
         type: "string",
         description:
-          "New URL slug without .html (e.g. 'pricing'). Sanitized and de-duplicated against other pages.",
+          "New URL slug without .html (e.g. 'pricing', or 'blog/launch' for a page in a folder). Sanitized and de-duplicated against other pages.",
       },
     },
     required: ["page"],
