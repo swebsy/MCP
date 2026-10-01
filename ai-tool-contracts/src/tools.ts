@@ -842,7 +842,7 @@ export const TOOL_UPDATE_SETTINGS = {
           imageOptimization: {
             type: "object",
             description:
-              "Re-encode images at export/deploy. Originals are never touched. Send only the keys that change.",
+              "Re-encode images at export/deploy. Originals are only replaced when the site owner turned that on in Settings, which this tool cannot do. Send only the keys that change.",
             properties: {
               preset: {
                 type: "string",
