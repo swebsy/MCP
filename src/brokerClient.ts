@@ -210,8 +210,15 @@ export class BrokerClient implements RelayApi {
           new BridgeError("not_connected", "Unexpected broker handshake.")
         );
       };
-      const onClose = () =>
-        rejectWith(new BridgeError("not_connected", "Broker connection lost."));
+      const onClose = (_code: number, reason: Buffer) =>
+        rejectWith(
+          new BridgeError(
+            "not_connected",
+            reason.length
+              ? `Broker refused the connection: ${reason.toString()}.`
+              : "Broker connection lost."
+          )
+        );
       const onError = () =>
         rejectWith(new BridgeError("not_connected", "Broker connection lost."));
       timer = setTimeout(

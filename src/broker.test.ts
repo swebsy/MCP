@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Broker, MAX_COMMAND_TIMEOUT_MS } from "./broker.ts";
@@ -779,6 +779,55 @@ describe("Broker", () => {
         await b.close();
       }
     );
+  });
+
+  it("accepts an agent token rewritten after the broker started", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "swebsy-broker-token-"));
+    const prev = process.env.SWEBSY_AGENT_AUTH_FILE;
+    process.env.SWEBSY_AGENT_AUTH_FILE = join(dir, "agent.token");
+    const b = new Broker({ port: 0, browserOrigins: [TEST_ORIGIN] });
+    try {
+      const p = await b.listen();
+      // The original file vanished and the next agent recreated it.
+      await rm(process.env.SWEBSY_AGENT_AUTH_FILE);
+      const fresh = "b".repeat(64);
+      await writeFile(process.env.SWEBSY_AGENT_AUTH_FILE, fresh, {
+        mode: 0o600,
+      });
+      const hello = (token: string) =>
+        new Promise<string>((resolve) => {
+          const ws = new WebSocket(`ws://127.0.0.1:${p}`);
+          ws.once("open", () =>
+            ws.send(JSON.stringify({ type: "hello", token }))
+          );
+          ws.once("message", (d) => {
+            resolve(JSON.parse(d.toString()).type);
+            ws.close();
+          });
+          ws.once("close", (code) => resolve(`close ${code}`));
+        });
+      expect(await hello(fresh)).toBe("welcome");
+      expect(await hello("c".repeat(64))).toBe("close 1008");
+      // Two hellos racing the re-read register one agent, not two.
+      await rm(process.env.SWEBSY_AGENT_AUTH_FILE);
+      const fresher = "d".repeat(64);
+      await writeFile(process.env.SWEBSY_AGENT_AUTH_FILE, fresher, {
+        mode: 0o600,
+      });
+      const ws = new WebSocket(`ws://127.0.0.1:${p}`);
+      await new Promise((r) => ws.once("open", r));
+      ws.send(JSON.stringify({ type: "hello", token: fresher }));
+      ws.send(JSON.stringify({ type: "hello", token: fresher }));
+      await new Promise((r) => ws.once("message", r));
+      await new Promise((r) => setTimeout(r, 50));
+      expect(b.status().agents).toHaveLength(1);
+      ws.close();
+    } finally {
+      await b.close();
+      if (prev === undefined) delete process.env.SWEBSY_AGENT_AUTH_FILE;
+      else process.env.SWEBSY_AGENT_AUTH_FILE = prev;
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   describe("idle lifecycle", () => {

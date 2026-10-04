@@ -47,6 +47,7 @@ export const AGENT_TOOL_ALLOWLIST = [
   "edit_section",
   "delete_section",
   "move_section",
+  "wrap_section",
   "duplicate_section",
   "insert_block",
   "update_settings",

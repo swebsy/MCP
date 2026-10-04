@@ -470,11 +470,24 @@ export class Broker {
     }
     // First frame decides the role.
     if (frame.type === "hello") {
-      if (!this.validAgentToken((frame as Record<string, unknown>).token)) {
-        socket.close(1008, "Agent authentication failed");
+      const hello = frame as Record<string, unknown>;
+      if (this.validAgentToken(hello.token)) {
+        this.registerAgent(socket, hello);
         return;
       }
-      this.registerAgent(socket, frame as Record<string, unknown>);
+      // The token file can be replaced under a long-lived broker (macOS temp
+      // cleanup, then the next agent recreates it). Re-read before refusing,
+      // or every new agent is locked out until the broker restarts.
+      void this.reloadAgentToken().then(() => {
+        // A second hello sent during the re-read must not register twice.
+        if (socket.readyState !== WebSocket.OPEN) return;
+        if (this.agentIdBySocket.has(socket)) return;
+        if (this.validAgentToken(hello.token)) {
+          this.registerAgent(socket, hello);
+        } else {
+          socket.close(1008, "Agent authentication failed");
+        }
+      });
       return;
     }
 
@@ -810,6 +823,15 @@ export class Broker {
   ): void {
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify(frame));
+    }
+  }
+
+  private async reloadAgentToken(): Promise<void> {
+    if (this.configuredAgentToken) return;
+    try {
+      this.agentToken = await readOrCreateAgentToken(this.requestedPort);
+    } catch (err) {
+      console.error("[swebsy-broker] keeping agent token:", err);
     }
   }
 

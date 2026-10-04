@@ -396,6 +396,52 @@ export const TOOL_MOVE_SECTION = {
   },
 } as const;
 
+export const TOOL_WRAP_SECTION = {
+  name: "wrap_section",
+  description:
+    "Wrap a run of sibling components in one new element, optionally with a semantic tag — e.g. put everything between the navbar and footer in `<main>`, or a footer symbol in `<footer>`. The wrapped components keep their ids, id-styles and symbol links. ALWAYS use this to add a wrapper; re-sending the components through `edit_section`/`replace_page_content` loses their styles. Paths shift — call `read_page` before the next path-based edit.",
+  input_schema: {
+    type: "object",
+    properties: {
+      targetPath: {
+        type: "array",
+        description:
+          "Path (from the most recent `read_page`) of the first component to wrap.",
+        items: { type: "integer", minimum: 0 },
+        minItems: 1,
+      },
+      endPath: {
+        type: "array",
+        description:
+          "Path of the last component to wrap, a later sibling of targetPath. Everything between them is wrapped too. Omit to wrap only targetPath.",
+        items: { type: "integer", minimum: 0 },
+        minItems: 1,
+      },
+      tagName: {
+        type: "string",
+        enum: [
+          "div",
+          "section",
+          "main",
+          "header",
+          "footer",
+          "nav",
+          "aside",
+          "article",
+        ],
+        description:
+          "Wrapper tag. Default div. One `main` per page, never inside header/footer/nav/aside/article.",
+      },
+      customName: {
+        type: "string",
+        description: 'Layers-panel label, e.g. "Main content".',
+      },
+    },
+    required: ["targetPath"],
+    additionalProperties: false,
+  },
+} as const;
+
 export const TOOL_DUPLICATE_SECTION = {
   name: "duplicate_section",
   description:
@@ -1288,6 +1334,7 @@ export const ALL_TOOLS = [
   TOOL_EDIT_SECTION,
   TOOL_DELETE_SECTION,
   TOOL_MOVE_SECTION,
+  TOOL_WRAP_SECTION,
   TOOL_DUPLICATE_SECTION,
   TOOL_INSERT_BLOCK,
   TOOL_UPDATE_SETTINGS,
