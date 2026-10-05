@@ -5,8 +5,11 @@ import {
   AGENT_TOOL_ALLOWLIST,
   AGENT_TOOL_PREFIX,
   buildMcpTools,
+  buildRemoteMcpTools,
+  DESTRUCTIVE_TOOLS,
   DEV_AUTHORING_TOOLS,
   NET_NEW_TOOLS,
+  READ_ONLY_TOOLS,
   sharedMcpTools,
   toWireName,
 } from "./toolRegistry.ts";
@@ -287,5 +290,41 @@ describe("toolRegistry", () => {
   it("maps MCP names to bare wire command names", () => {
     expect(toWireName("swebsy_add_section")).toBe("add_section");
     expect(toWireName("swebsy_capture")).toBe("capture");
+  });
+
+  it("remote surface is the local one minus disk-bound tools", () => {
+    const local = new Set(buildMcpTools().map((t) => t.name));
+    const remote = buildRemoteMcpTools().map((t) => t.name);
+    for (const name of remote) expect(local).toContain(name);
+    for (const gone of [
+      "swebsy_start_pairing",
+      "swebsy_export",
+      "swebsy_upload_asset",
+    ]) {
+      expect(remote).not.toContain(gone);
+    }
+    expect(remote).toContain("swebsy_capture");
+    expect(remote.length).toBe(local.size - 3);
+  });
+
+  it("every tool carries a title and annotations the directories require", () => {
+    process.env.SWEBSY_AUTHORING = "1";
+    const tools = [...buildMcpTools(), ...buildRemoteMcpTools()];
+    const names = new Set(tools.map((t) => toWireName(t.name)));
+    // A renamed tool must not silently drop its read-only/destructive hint.
+    for (const n of [...READ_ONLY_TOOLS, ...DESTRUCTIVE_TOOLS]) {
+      expect(names, n).toContain(n);
+    }
+    for (const t of tools) {
+      expect(t.title, t.name).toMatch(/^[A-Z][a-z ]+$/);
+      expect(t.annotations?.openWorldHint, t.name).toBe(false);
+      const wire = toWireName(t.name);
+      expect(t.annotations?.readOnlyHint, t.name).toBe(
+        READ_ONLY_TOOLS.has(wire)
+      );
+      expect(t.annotations?.destructiveHint, t.name).toBe(
+        DESTRUCTIVE_TOOLS.has(wire)
+      );
+    }
   });
 });

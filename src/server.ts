@@ -28,7 +28,12 @@ import { runBroker } from "./broker.ts";
 import { runSetup } from "./setup.ts";
 import { BrokerClient } from "./brokerClient.ts";
 import { BridgeError } from "./errors.ts";
-import { buildMcpTools, toWireName } from "./toolRegistry.ts";
+import {
+  buildMcpTools,
+  STATUS_TIMEOUT_MS,
+  timeoutFor,
+  toWireName,
+} from "./toolRegistry.ts";
 import { ArtifactReceiver } from "./artifacts.ts";
 import type { RelayApi } from "./protocol.ts";
 
@@ -39,19 +44,7 @@ const packageManifest = JSON.parse(
 /** Only the artifact surface dispatch needs (id → written absolute path). */
 type ArtifactResolver = Pick<ArtifactReceiver, "result">;
 
-const DEFAULT_TIMEOUT_MS = 30_000;
-const LONG_TIMEOUT_MS = 120_000; // create/capture/export can fetch or process assets
-const LONG_TIMEOUT_TOOLS = new Set([
-  "create_site",
-  "capture",
-  "export",
-  "upload_asset",
-]);
 const ARTIFACT_TOOLS = new Set(["capture", "export"]);
-// export_template installs the template + captures per-block light/dark
-// thumbnails through a headless browser — the slowest tool by far.
-export const EXPORT_TEMPLATE_TIMEOUT_MS = 300_000;
-const STATUS_TIMEOUT_MS = 10_000;
 // One budget per normal tool call, under Codex's 60s default: up to 20s to get
 // a tab back, queue wait ending 25s after the call started, then 30s to run.
 export const RECOVERY_BUDGET_MS = 20_000;
@@ -62,11 +55,6 @@ const DEFAULT_APP_URL = "https://studio.swebsy.com";
 // Computed at module load — SWEBSY_AUTHORING is fixed for the process
 // lifetime, so the env-dependent surface is stable here.
 const KNOWN_TOOL_NAMES = new Set(buildMcpTools().map((t) => t.name));
-
-function timeoutFor(wire: string): number {
-  if (wire === "export_template") return EXPORT_TEMPLATE_TIMEOUT_MS;
-  return LONG_TIMEOUT_TOOLS.has(wire) ? LONG_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
-}
 
 function buildPairUrl(code: string, port: number, auto = false): string {
   const rawBase = process.env.SWEBSY_APP_URL ?? DEFAULT_APP_URL;

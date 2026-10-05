@@ -63,6 +63,15 @@ export interface McpToolDef {
   description: string;
   /** JSON Schema for the tool input (MCP `inputSchema`). */
   inputSchema: Record<string, unknown>;
+  /** Human-readable name shown by MCP clients and app directories. */
+  title?: string;
+  /** MCP behavior hints — clients use them to decide what needs confirming. */
+  annotations?: {
+    readOnlyHint: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint: boolean;
+  };
 }
 
 const emptyObject = {
@@ -114,7 +123,7 @@ export const NET_NEW_TOOLS: readonly McpToolDef[] = [
   {
     name: "swebsy_create_site",
     description:
-      "Create a site and open it in Studio. Omit templateId for Swebsy's standard blank site; provide an installed template ID to import that template unchanged. Then poll swebsy_status until editorReady is true and siteId matches before editing.",
+      'Create a site and open it in Studio. Pass name to set its internal Studio/Home name (default "My Website"). Omit templateId for Swebsy\'s standard blank site; provide an installed template ID to import that template unchanged. Then poll swebsy_status until editorReady is true and siteId matches before editing.',
     inputSchema: {
       type: "object",
       properties: {
@@ -123,6 +132,12 @@ export const NET_NEW_TOOLS: readonly McpToolDef[] = [
           minLength: 1,
           description:
             "Optional installed template ID from swebsy_list_templates. Omit for a blank site.",
+        },
+        name: {
+          type: "string",
+          minLength: 1,
+          description:
+            "Optional internal site name (trimmed). Not the SEO or public title.",
         },
       },
       additionalProperties: false,
@@ -608,13 +623,65 @@ export function sharedMcpTools(): McpToolDef[] {
   });
 }
 
+// Behavior hints by bare name. Metadata only — schema and behavior stay single-
+// sourced. Anything not listed is a non-destructive write: every edit is
+// reversible with swebsy_undo, and flagging edits destructive would make
+// ChatGPT/Claude confirm every step of a build.
+export const READ_ONLY_TOOLS = new Set([
+  "status",
+  "read_page",
+  "read_selection",
+  "list_pages",
+  "list_sites",
+  "list_templates",
+  "list_symbols",
+  "list_blocks",
+  "list_skills",
+  "list_assets",
+  "get_skill",
+  "get_builder_guide",
+  "capture",
+]);
+export const DESTRUCTIVE_TOOLS = new Set([
+  "delete_page",
+  "delete_section",
+  "delete_symbol",
+  "delete_asset",
+  "replace_page_content",
+]);
+const TITLE_OVERRIDES: Record<string, string> = {
+  capture: "Take screenshot",
+  get_skill: "Load guidance",
+  list_skills: "List guidance topics",
+  get_builder_guide: "Load builder guide",
+  status: "Check connection",
+};
+
+function annotate(t: McpToolDef): McpToolDef {
+  const wire = toWireName(t.name);
+  const readOnly = READ_ONLY_TOOLS.has(wire);
+  const words = wire.replace(/_/g, " ");
+  return {
+    ...t,
+    title:
+      TITLE_OVERRIDES[wire] ?? words.charAt(0).toUpperCase() + words.slice(1),
+    // OpenAI wants all three hints as explicit booleans on every tool.
+    annotations: {
+      readOnlyHint: readOnly,
+      destructiveHint: DESTRUCTIVE_TOOLS.has(wire),
+      openWorldHint: false,
+      ...(readOnly && { idempotentHint: true }),
+    },
+  };
+}
+
 /** The full agent-facing tool surface: shared (allowlisted) + net-new, plus
  *  the dev-only authoring tools when SWEBSY_AUTHORING=1 (checked per call so
  *  tests can stub the env). */
 export function buildMcpTools(): McpToolDef[] {
   const devTools =
     process.env.SWEBSY_AUTHORING === "1" ? DEV_AUTHORING_TOOLS : [];
-  return [...sharedMcpTools(), ...NET_NEW_TOOLS, ...devTools];
+  return [...sharedMcpTools(), ...NET_NEW_TOOLS, ...devTools].map(annotate);
 }
 
 /** Strip the `swebsy_` prefix to get the wire command name for the browser. */
@@ -622,4 +689,49 @@ export function toWireName(mcpName: string): string {
   return mcpName.startsWith(AGENT_TOOL_PREFIX)
     ? mcpName.slice(AGENT_TOOL_PREFIX.length)
     : mcpName;
+}
+
+// Per-tool call budgets, shared by the local bridge and the remote connector.
+export const DEFAULT_TIMEOUT_MS = 30_000;
+const LONG_TIMEOUT_MS = 120_000; // create/capture/export can fetch or process assets
+const LONG_TIMEOUT_TOOLS = new Set([
+  "create_site",
+  "capture",
+  "export",
+  "upload_asset",
+]);
+// export_template installs the template + captures per-block light/dark
+// thumbnails through a headless browser — the slowest tool by far.
+export const EXPORT_TEMPLATE_TIMEOUT_MS = 300_000;
+export const STATUS_TIMEOUT_MS = 10_000;
+
+/** Call budget for a wire (unprefixed) tool name. */
+export function timeoutFor(wire: string): number {
+  if (wire === "export_template") return EXPORT_TEMPLATE_TIMEOUT_MS;
+  return LONG_TIMEOUT_TOOLS.has(wire) ? LONG_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
+}
+
+/** Tools bound to the agent's own disk or a local pairing — meaningless to a
+ *  hosted client (ChatGPT, Claude.ai) talking to the remote connector. */
+export const REMOTE_EXCLUDED = new Set([
+  "swebsy_start_pairing",
+  "swebsy_export",
+  "swebsy_upload_asset",
+]);
+
+const REMOTE_CAPTURE_DESCRIPTION =
+  "Capture a styled screenshot of the current page at a fixed viewport and return it as an image you can see. Scope it with `targetPath` when verifying ONE section — a whole-page PNG downscales so far that component detail is unreadable.";
+
+/** The remote connector's surface: the local one minus disk-bound tools, with
+ *  capture returning an image instead of a file path. Never the dev tools. */
+export function buildRemoteMcpTools(): McpToolDef[] {
+  return [...sharedMcpTools(), ...NET_NEW_TOOLS]
+    .filter((t) => !REMOTE_EXCLUDED.has(t.name))
+    .map((t) =>
+      annotate(
+        t.name === "swebsy_capture"
+          ? { ...t, description: REMOTE_CAPTURE_DESCRIPTION }
+          : t
+      )
+    );
 }

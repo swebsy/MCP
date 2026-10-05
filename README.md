@@ -19,6 +19,12 @@ secrets (API keys, deploy tokens, chat history) before anything crosses the
 bridge. Your coding agent's own service and privacy policy still apply to the
 non-secret content it receives.
 
+> **Using ChatGPT or Claude (the apps)?** You don't need this package. Add
+> `https://mcp.swebsy.com/mcp` as a custom app in ChatGPT or a custom connector
+> in Claude, sign in to Swebsy and click Allow —
+> [setup steps](https://docs.swebsy.com/settings/ai-coding-agent/). This
+> package is for coding agents that run on your machine.
+
 ## What is Swebsy?
 
 Swebsy is a **visual website builder** with a real ownership model: you build

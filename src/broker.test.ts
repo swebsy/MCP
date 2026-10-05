@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Broker, MAX_COMMAND_TIMEOUT_MS } from "./broker.ts";
 import { BridgeError } from "./errors.ts";
-import { EXPORT_TEMPLATE_TIMEOUT_MS } from "./server.ts";
+import { EXPORT_TEMPLATE_TIMEOUT_MS } from "./toolRegistry.ts";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const TEST_ORIGIN = "https://swebsy.test";
