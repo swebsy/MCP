@@ -563,6 +563,7 @@ export const DEV_AUTHORING_TOOLS: readonly McpToolDef[] = [
             "What the site is for — drives the category shown on the Create-page card and its filter. Omitted defaults to 'other'.",
           enum: [
             "portfolio",
+            "resume",
             "services",
             "saas",
             "link-in-bio",
