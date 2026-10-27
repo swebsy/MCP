@@ -173,10 +173,22 @@ export const TOOL_CREATE_PAGE = {
   },
 } as const;
 
+/**
+ * A component's id, as `read_page` prints it (`#ieyubib`, without the `#`).
+ * Unlike a positional path it survives moves, inserts and wraps elsewhere on
+ * the page. Pass it instead of the matching `…Path`, never both.
+ */
+const componentIdSchema = (what: string) =>
+  ({
+    type: "string",
+    minLength: 1,
+    description: `${what} by its id, as \`read_page\` shows it after \`#\` (e.g. "ieyubib", or "call-2-2" in a symbol instance). Stays valid when other components move or are added, unlike a path. Pass this OR the path, not both.`,
+  }) as const;
+
 export const TOOL_LINK_PAGE = {
   name: "link_page",
   description:
-    "Point an existing link at a project page — the same wiring the UI's 'Link to' picker does. Pass the link's `targetPath` (from `read_page`) and the target `page` (id or name). For a navbar link this sets its page target so the href and active state stay in sync; for a plain link or button it sets href to the page's ./slug.html. Use after `create_page` to wire a navbar to the new page.",
+    "Point an existing link at a project page — the same wiring the UI's 'Link to' picker does. Pass the link's `targetId` or `targetPath` (from `read_page`) and the target `page` (id or name). For a navbar link this sets its page target so the href and active state stay in sync; for a plain link or button it sets href to the page's ./slug.html. Use after `create_page` to wire a navbar to the new page.",
   input_schema: {
     type: "object",
     properties: {
@@ -187,12 +199,13 @@ export const TOOL_LINK_PAGE = {
         items: { type: "integer", minimum: 0 },
         minItems: 1,
       },
+      targetId: componentIdSchema("The link"),
       page: {
         type: "string",
         description: "Page id or name to link to.",
       },
     },
-    required: ["targetPath", "page"],
+    required: ["page"],
     additionalProperties: false,
   },
 } as const;
@@ -289,7 +302,7 @@ export const TOOL_ADD_SECTION = {
 export const TOOL_EDIT_SECTION = {
   name: "edit_section",
   description:
-    "Modify an existing component. By default this edits the selected component. To edit a component identified by `read_page`, provide its `targetPath`; an explicit path overrides the canvas selection. Preferred: provide `component` — the full replacement component tree (compact DSL OK), best for structural changes. Alternative: provide `html` — the complete modified HTML string. Fallback: provide `patch` — JSON Patch (RFC 6902) for tiny single-property tweaks. Supply exactly one. Preserve existing IDs: an id kept in the edit keeps the styles attached to it; an id you drop loses them.",
+    "Modify an existing component. By default this edits the selected component. To edit a component identified by `read_page`, provide its `targetId` (preferred — survives other edits) or `targetPath`; an explicit target overrides the canvas selection. Preferred: provide `component` — the full replacement component tree (compact DSL OK), best for structural changes. Alternative: provide `html` — the complete modified HTML string. Fallback: provide `patch` — JSON Patch (RFC 6902) for tiny single-property tweaks. Supply exactly one. Preserve existing IDs: an id kept in the edit keeps the styles attached to it; an id you drop loses them. The result's `id` is the component's id after the edit (a replacing edit can give it a new one). `changed: false` means the page's HTML/CSS/JS came out identical, so the edit did not show up; `success: false` means a patched attribute is not what the page exports.",
   input_schema: {
     type: "object",
     properties: {
@@ -304,6 +317,7 @@ export const TOOL_EDIT_SECTION = {
         items: { type: "integer", minimum: 0 },
         minItems: 1,
       },
+      targetId: componentIdSchema("The component to edit"),
       component: {
         ...COMPONENT_SCHEMA,
         description:
@@ -317,7 +331,7 @@ export const TOOL_EDIT_SECTION = {
       patch: {
         type: "array",
         description:
-          "JSON Patch (RFC 6902) operations applied to the target component JSON. Only for tiny single-property tweaks.",
+          "JSON Patch (RFC 6902) operations applied to the target component JSON. Only for tiny single-property tweaks. HTML attributes live under /attributes (an image's src is /attributes/src), classes at /classes, text at /content.",
         items: {
           type: "object",
           properties: {
@@ -343,7 +357,7 @@ export const TOOL_EDIT_SECTION = {
 export const TOOL_DELETE_SECTION = {
   name: "delete_section",
   description:
-    "Remove a component from the current page entirely. Use this instead of emptying a section's contents — an emptied section leaves a stray blank div on the page. Deletes the selected component by default; pass `targetPath` (from `read_page`) to delete a component you did not select.",
+    "Remove a component from the current page entirely. Use this instead of emptying a section's contents — an emptied section leaves a stray blank div on the page. Deletes the selected component by default; pass `targetId` or `targetPath` (from `read_page`) to delete a component you did not select.",
   input_schema: {
     type: "object",
     properties: {
@@ -358,6 +372,7 @@ export const TOOL_DELETE_SECTION = {
         items: { type: "integer", minimum: 0 },
         minItems: 1,
       },
+      targetId: componentIdSchema("The component to delete"),
     },
     required: ["summary"],
     additionalProperties: false,
@@ -367,7 +382,7 @@ export const TOOL_DELETE_SECTION = {
 export const TOOL_MOVE_SECTION = {
   name: "move_section",
   description:
-    "Move a component to just before or after another component on the current page — reorder sections, swap columns, lift a CTA above the footer. The component keeps its id, classes and id-styles. ALWAYS use this to reorder; delete + re-add loses the component's styles.",
+    "Move a component to just before or after another component on the current page — reorder sections, swap columns, lift a CTA above the footer. The component keeps its id, classes and id-styles. ALWAYS use this to reorder; delete + re-add loses the component's styles. Name each side by id (`targetId`/`anchorId`) or by path (`targetPath`/`anchorPath`).",
   input_schema: {
     type: "object",
     properties: {
@@ -378,6 +393,7 @@ export const TOOL_MOVE_SECTION = {
         items: { type: "integer", minimum: 0 },
         minItems: 1,
       },
+      targetId: componentIdSchema("The component to move"),
       anchorPath: {
         type: "array",
         description:
@@ -385,13 +401,13 @@ export const TOOL_MOVE_SECTION = {
         items: { type: "integer", minimum: 0 },
         minItems: 1,
       },
+      anchorId: componentIdSchema("The component to place it next to"),
       position: {
         type: "string",
         enum: ["before", "after"],
         description: "Which side of the anchor. Default after.",
       },
     },
-    required: ["targetPath", "anchorPath"],
     additionalProperties: false,
   },
 } as const;
@@ -445,7 +461,7 @@ export const TOOL_WRAP_SECTION = {
 export const TOOL_DUPLICATE_SECTION = {
   name: "duplicate_section",
   description:
-    "Copy a component (with its classes and styles) and insert the copy right after it. Paths after it shift by one — call `read_page` before the next path-based edit.",
+    "Copy a component (with its classes and styles) and insert the copy right after it. Paths after it shift by one — call `read_page` before the next path-based edit (ids don't shift).",
   input_schema: {
     type: "object",
     properties: {
@@ -456,8 +472,8 @@ export const TOOL_DUPLICATE_SECTION = {
         items: { type: "integer", minimum: 0 },
         minItems: 1,
       },
+      targetId: componentIdSchema("The component to copy"),
     },
-    required: ["targetPath"],
     additionalProperties: false,
   },
 } as const;
@@ -1187,7 +1203,7 @@ export const TOOL_GET_SKILL = {
 export const TOOL_READ_PAGE = {
   name: "read_page",
   description:
-    "Read the current page structure and addressable component target paths. Call this BEFORE editing a named or relative page component that is not the current selection. The default `sections` read lists every top-level section with its target path — enough to pick the one to edit. When copying content between components, use `detail: full` WITH the `targetPath` of the one section you're copying, not a whole-page read. Also call it AFTER applying edits to verify the result.",
+    "Read the current page structure: each line shows a component's target path and its `#id`. edit_section, delete_section, move_section, duplicate_section and link_page take either — prefer the id (`targetId`), which survives moves and inserts; other tools take the path. Use the id only to target; don't copy auto ids into markup. Call this BEFORE editing a named or relative page component that is not the current selection. The default `sections` read lists every top-level section with its target path — enough to pick the one to edit. To find a nested element (a link, button, card) pass that section's `targetPath` plus `depth` — one call instead of drilling down level by level. When copying content between components, use `detail: full` WITH the `targetPath` of the one section you're copying, not a whole-page read. Also call it AFTER applying edits to verify the result.",
   input_schema: {
     type: "object",
     properties: {
@@ -1195,13 +1211,20 @@ export const TOOL_READ_PAGE = {
         type: "string",
         enum: ["sections", "outline", "full"],
         description:
-          "'sections' (default): every section at the read root with its target path, an ~80-char text preview, and its descendant count — bounded and complete (~1-2 KB). 'outline': a deeper type/tag/class tree, character-capped. 'full': the complete cleaned JSON tree, for copying content between components (scope it with targetPath).",
+          "'sections' (default): every section at the read root with its target path, an ~80-char text preview, and its descendant count — bounded and complete (~1-2 KB). 'outline': a deeper type/tag/class tree, character-capped (~2 KB; prefer `sections` + `depth`). 'full': the complete cleaned JSON tree, for copying content between components (scope it with targetPath).",
       },
       targetPath: {
         type: "array",
         items: { type: "integer", minimum: 0 },
         description:
           "Optional. Zero-based component indexes from the page root (as returned by a prior read_page) that scope the read to that ONE subtree instead of the whole page. Strongly recommended with `detail: full` — reading one section's JSON instead of the entire page.",
+      },
+      depth: {
+        type: "integer",
+        minimum: 1,
+        maximum: 12,
+        description:
+          "Optional. How many levels of the indexed tree to print below the section layer (default 1 = each section only, deeper nodes summarised as '(N descendants)'). Every printed line keeps its target path. Pair with `targetPath` to see a whole section in one call — e.g. `targetPath: [7], depth: 6` lists every link in the footer with its path for link_page/edit_section. Above 1 the read is capped at ~24 KB and ends with a '…(truncated: … next is [path])' marker if it doesn't fit; values above 12 are clamped.",
       },
     },
     additionalProperties: false,

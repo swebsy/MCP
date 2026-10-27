@@ -89,7 +89,7 @@ guidance on animation, page composition, copywriting, forms, and nav.
 
 | Tool | What it does |
 |---|---|
-| `swebsy_read_page` | The page component tree. `targetPath` arrays from here address every other tool. Supports detail levels; the default outline **truncates** — request more detail when you need ids or attributes. |
+| `swebsy_read_page` | The page component tree. Each line shows a `targetPath` and the component's `#id`; edit, delete, move, duplicate and link tools take either (`targetId` survives moves and inserts, paths shift). The default lists each section one level deep; add `targetPath` + `depth` (up to 12) to see a whole section — every nested link and button with its path and id — in one call. `detail: "full"` returns the JSON when you need attributes. Unknown arguments are reported as a `NOTE:` line, never silently applied. |
 | `swebsy_read_selection` | The currently selected component (type, classes, attributes, text). |
 
 ### Editing
@@ -97,7 +97,7 @@ guidance on animation, page composition, copywriting, forms, and nav.
 | Tool | What it does |
 |---|---|
 | `swebsy_add_section` | Append/insert a new section. |
-| `swebsy_edit_section` | Replace or patch a component at `targetPath`. |
+| `swebsy_edit_section` | Replace or patch a component by `targetId` or `targetPath`. The result's `id` is its current id; `changed: false` means nothing on the page changed. |
 | `swebsy_delete_section` | Remove a component. |
 | `swebsy_insert_block` | Drop in a catalog block by id. |
 | `swebsy_replace_page_content` | Replace a whole page's content. |
