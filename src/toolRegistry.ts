@@ -415,7 +415,7 @@ export const NET_NEW_TOOLS: readonly McpToolDef[] = [
   {
     name: "swebsy_upload_asset",
     description:
-      "Upload a local image, font, video, audio or PDF file into the open site and return its `assetId`, `src` and a `usage` snippet. Images go in the asset library for `image` components, video for `video` components (`attributes.src`), audio for `audio`, PDFs as a link `href`; fonts are stored for `update_settings` fonts.custom. This is the ONLY way to get your own imagery (screenshots, logos, textures, mockups) into a site — an `image` with an empty src gets a random stock photo instead. Reads the file from the agent's own filesystem, so pass a path you can see (for example a screenshot you just captured). The asset is stored in the project and travels with static export and project JSON.",
+      "Upload a local image, font, video, audio or PDF file into the open site and return its `assetId`, `src` and a `usage` snippet. Images go in the asset library for `image` components, video for `video` components (`attributes.src`), audio for `audio`, PDFs as a link `href`; fonts are stored for `update_settings` fonts.custom. This is the ONLY way to get your own imagery (screenshots, logos, textures, mockups) into a site — an `image` with an empty src gets a random stock photo instead. Reads the file from the agent's own filesystem, so pass a path you can see (for example a screenshot you just captured). The asset is stored in the project and travels with static export and project JSON. Pass `path` or `paths` (exactly one). Several files: pass `paths` (up to 25) instead of `path` for one call that returns a compact `{assets: {basename: src}, failed: {basename: reason}}` map.",
     inputSchema: {
       type: "object",
       properties: {
@@ -423,15 +423,22 @@ export const NET_NEW_TOOLS: readonly McpToolDef[] = [
           type: "string",
           minLength: 1,
           description:
-            "Absolute path to the file on the agent's machine. Images: .png, .jpg, .jpeg, .webp, .gif, .avif, .svg. Fonts (for `update_settings` fonts.custom, pass the returned assetId): .woff2, .woff, .ttf, .otf. Video: .mp4, .m4v, .webm, .mov, .ogv. Audio: .mp3, .m4a, .wav, .ogg. Documents: .pdf. Max 10 MB (the hosting per-file cap) — re-encode larger files first (for video: H.264 .mp4, 1080p or less, `-movflags +faststart`). Prefer .svg for logos and other flat vector art so it stays crisp at any size; uploaded SVG is sanitized (scripts and external references are stripped).",
+            "Absolute path to the file on the agent's machine. Pass `path` or `paths` (exactly one). Images: .png, .jpg, .jpeg, .webp, .gif, .avif, .svg. Fonts (for `update_settings` fonts.custom, pass the returned assetId): .woff2, .woff, .ttf, .otf. Video: .mp4, .m4v, .webm, .mov, .ogv. Audio: .mp3, .m4a, .wav, .ogg. Documents: .pdf. Max 10 MB (the hosting per-file cap) — re-encode larger files first (for video: H.264 .mp4, 1080p or less, `-movflags +faststart`). Prefer .svg for logos and other flat vector art so it stays crisp at any size; uploaded SVG is sanitized (scripts and external references are stripped).",
+        },
+        paths: {
+          type: "array",
+          items: { type: "string", minLength: 1 },
+          minItems: 1,
+          maxItems: 25,
+          description:
+            "Batch form: absolute paths of up to 25 files (same types and 10 MB cap as `path`). Pass `path` or `paths` (exactly one). Each file is uploaded on its own, so one bad file lands in `failed` without stopping the rest. Display names are the basenames; `filename` is not used.",
         },
         filename: {
           type: "string",
           description:
-            "Optional display name in the asset library. Defaults to the file's own basename.",
+            "Optional display name in the asset library, single `path` only. Defaults to the file's own basename.",
         },
       },
-      required: ["path"],
       additionalProperties: false,
     },
   },

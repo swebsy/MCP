@@ -268,7 +268,7 @@ export const TOOL_DELETE_PAGE = {
 export const TOOL_ADD_SECTION = {
   name: "add_section",
   description:
-    "Insert a new section into the current page. Use for adding discrete sections (hero, features, pricing, CTA) to an existing page. Appends to the end by default; to place it somewhere specific, pass `position` plus the `targetPath` of the component to place it next to.",
+    "Insert a new section into the current page. Use for adding discrete sections (hero, features, pricing, CTA) to an existing page. Supply exactly one of `component` (a component tree) or `html` (one root element). Appends to the end by default; to place it somewhere specific, pass `position` plus the `targetPath` of the component to place it next to.",
   input_schema: {
     type: "object",
     properties: {
@@ -278,7 +278,13 @@ export const TOOL_ADD_SECTION = {
       },
       component: {
         ...COMPONENT_SCHEMA,
-        description: "The section component to insert.",
+        description:
+          "The section component to insert. Omit when sending `html`.",
+      },
+      html: {
+        type: "string",
+        description:
+          "The section as HTML with a single root element (e.g. one <section>). No data-gjs-* attributes. Omit when sending `component`.",
       },
       position: {
         type: "string",
@@ -294,7 +300,7 @@ export const TOOL_ADD_SECTION = {
         minItems: 1,
       },
     },
-    required: ["summary", "component"],
+    required: ["summary"],
     additionalProperties: false,
   },
 } as const;

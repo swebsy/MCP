@@ -16,7 +16,8 @@ export type AgentErrorCode =
   | "cancelled" // the agent cancelled the call before it finished
   | "busy" // queued past its deadline behind another command; never ran
   | "tab_unresponsive" // tab is attached but stopped answering heartbeats
-  | "slot_held"; // an automatic resume found another live tab in the slot
+  | "slot_held" // an automatic resume found another live tab in the slot
+  | "history_snapshot_failed"; // the editor's project would not serialize for undo
 
 export interface AgentError {
   code: AgentErrorCode;

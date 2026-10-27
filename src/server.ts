@@ -252,7 +252,7 @@ export async function buildUploadPayload(args: unknown): Promise<unknown> {
   if (typeof filePath !== "string" || !filePath.trim()) {
     throw new BridgeError(
       "validation_failed",
-      "upload_asset requires `path` — an absolute path to an image, font, video, audio or PDF file."
+      "upload_asset requires `path` — an absolute path to an image, font, video, audio or PDF file (or `paths` for several)."
     );
   }
   if (!isAbsolute(filePath)) {
@@ -308,6 +308,129 @@ export async function buildUploadPayload(args: unknown): Promise<unknown> {
     mimeType,
     data: bytes.toString("base64"),
   };
+}
+
+export const MAX_UPLOAD_BATCH = 25;
+const BATCH_USAGE =
+  "Each value is the file's src: an image component's `a.src`, a video's `a.src`, an audio's model `src`, a PDF link's `href`. Fonts give their assetId instead, for update_settings fonts.custom.";
+// After these the rest of the batch would fail or wait the same way, so stop
+// and hand back what landed: the tab is gone, queued behind another command,
+// or stalling.
+const STOP_BATCH = new Set([
+  "not_connected",
+  "tab_unresponsive",
+  "slot_held",
+  "busy",
+  "timeout",
+]);
+// No progress notifications reach the client mid-call, and many clients give
+// a tool call about two minutes, so the whole batch (tab recovery included)
+// ends by this deadline: each file gets only what is left of it.
+const BATCH_BUDGET_MS = 100_000;
+// Less than this left: starting another file would only time out.
+const MIN_FILE_MS = 1_000;
+const OUT_OF_TIME =
+  "time budget spent for this call; upload the rest in another call.";
+
+/** The `paths` list of a batch upload_asset call, or undefined for the
+ *  single-`path` form. Throws when both or neither shape is valid. */
+function uploadPaths(args: unknown): string[] | undefined {
+  const { path, paths, filename } = (args ?? {}) as {
+    path?: unknown;
+    paths?: unknown;
+    filename?: unknown;
+  };
+  if (paths === undefined) return undefined;
+  if (path !== undefined) {
+    throw new BridgeError(
+      "validation_failed",
+      "upload_asset takes `path` or `paths`, not both."
+    );
+  }
+  if (filename !== undefined) {
+    throw new BridgeError(
+      "validation_failed",
+      "upload_asset `filename` works with a single `path` only; batch uploads use each file's basename."
+    );
+  }
+  if (
+    !Array.isArray(paths) ||
+    paths.length === 0 ||
+    !paths.every((p) => typeof p === "string" && p.trim())
+  ) {
+    throw new BridgeError(
+      "validation_failed",
+      "upload_asset `paths` must be a non-empty list of absolute file paths."
+    );
+  }
+  if (paths.length > MAX_UPLOAD_BATCH) {
+    throw new BridgeError(
+      "validation_failed",
+      `upload_asset takes at most ${MAX_UPLOAD_BATCH} paths per call; got ${paths.length}. Split the list.`
+    );
+  }
+  // The same file twice would only store a duplicate asset.
+  return [...new Set(paths as string[])];
+}
+
+/** Worth attaching a tab for: an absolute path with an allowed extension. */
+const uploadable = (filePath: string): boolean =>
+  isAbsolute(filePath) && !!UPLOAD_MIME_BY_EXT[extname(filePath).toLowerCase()];
+
+/** `paths` form of upload_asset: one bridge command per file (so each stays
+ *  under the frame cap), one compact name→src map back. */
+async function uploadBatch(
+  relay: RelayApi,
+  paths: string[],
+  startedAt: number,
+  signal?: AbortSignal
+): Promise<unknown> {
+  const assets: Record<string, string> = {};
+  const failed: Record<string, string> = {};
+  const seen = new Set<string>();
+  const deadline = startedAt + BATCH_BUDGET_MS;
+  let stopped: string | undefined;
+  for (const filePath of paths) {
+    // Same basename from two folders: the later one keys by its full path.
+    const name = seen.has(basename(filePath)) ? filePath : basename(filePath);
+    seen.add(name);
+    const left = deadline - Date.now();
+    if (!stopped && left < MIN_FILE_MS) stopped = OUT_OF_TIME;
+    if (stopped) {
+      failed[name] = `Not uploaded: ${stopped}`;
+      continue;
+    }
+    try {
+      const payload = (await buildUploadPayload({ path: filePath })) as {
+        mimeType: string;
+      };
+      const res = (await relay.sendCommand(
+        "upload_asset",
+        payload,
+        Math.min(timeoutFor("upload_asset"), deadline - Date.now()),
+        {
+          signal,
+          queueDeadline: Math.min(Date.now() + QUEUE_DEADLINE_MS, deadline),
+        }
+      )) as { src?: unknown; assetId?: unknown } | null;
+      const value = payload.mimeType.startsWith("font/")
+        ? res?.assetId
+        : res?.src;
+      if (typeof value === "string" && value) assets[name] = value;
+      else failed[name] = "The tab stored it but returned no src.";
+    } catch (err) {
+      const code = (err as { code?: unknown }).code;
+      if (code === "cancelled" || signal?.aborted) throw err;
+      failed[name] = (err as Error).message;
+      if (typeof code === "string" && STOP_BATCH.has(code)) {
+        stopped =
+          code === "timeout" && deadline - Date.now() < MIN_FILE_MS
+            ? OUT_OF_TIME
+            : failed[name];
+      }
+    }
+  }
+  return { assets, failed, usage: BATCH_USAGE };
 }
 
 function cancelled(): BridgeError {
@@ -399,6 +522,18 @@ export async function dispatchTool(
     };
   }
   if (wire === "status") return statusResult(relay, args);
+  const batch = wire === "upload_asset" ? uploadPaths(args) : undefined;
+  if (batch) {
+    // A list of only bad paths fails per file without opening Studio.
+    if (batch.some(uploadable)) {
+      await ensureTab(
+        relay,
+        signal,
+        opts.recoveryBudgetMs ?? RECOVERY_BUDGET_MS
+      );
+    }
+    return uploadBatch(relay, batch, startedAt, signal);
+  }
   const payload =
     wire === "upload_asset" ? await buildUploadPayload(args) : (args ?? {});
   await ensureTab(relay, signal, opts.recoveryBudgetMs ?? RECOVERY_BUDGET_MS);

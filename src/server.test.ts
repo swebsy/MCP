@@ -439,6 +439,276 @@ describe("upload_asset", () => {
   });
 });
 
+describe("upload_asset batch (paths)", () => {
+  const tmp = mkdtempSync(join(tmpdir(), "swebsy-batch-"));
+  const file = (name: string, bytes = "x") => {
+    const p = join(tmp, name);
+    writeFileSync(p, bytes);
+    return p;
+  };
+  const a = file("a.jpg");
+  const b = file("b.png");
+  const font = file("Brand.woff2", "wOF2");
+
+  /** A relay that answers like the tab: src per file, assetId for fonts. */
+  function tabRelay(fail: Record<string, BridgeError> = {}) {
+    return fakeRelay({
+      sendCommand: async (tool, args) => {
+        const { filename } = args as { filename: string };
+        calls.push({ tool, args });
+        if (fail[filename]) throw fail[filename];
+        return {
+          assetId: `id-${filename}`,
+          src: `/builder-assets/${filename}`,
+          usage: "long usage",
+        };
+      },
+    });
+  }
+  let calls: Array<{ tool: string; args: unknown }> = [];
+
+  it("sends one bridge command per file and returns a compact map", async () => {
+    calls = [];
+    const { relay } = tabRelay();
+    const res = (await dispatchTool(relay, "swebsy_upload_asset", {
+      paths: [a, b, font],
+    })) as any;
+    expect(calls.map((c) => (c.args as any).filename)).toEqual([
+      "a.jpg",
+      "b.png",
+      "Brand.woff2",
+    ]);
+    expect(calls.every((c) => c.tool === "upload_asset")).toBe(true);
+    expect(res.assets).toEqual({
+      "a.jpg": "/builder-assets/a.jpg",
+      "b.png": "/builder-assets/b.png",
+      "Brand.woff2": "id-Brand.woff2", // fonts are referenced by assetId
+    });
+    expect(res.failed).toEqual({});
+    expect(typeof res.usage).toBe("string");
+    expect(res.usage.split("\n")).toHaveLength(1);
+    expect(JSON.stringify(res)).not.toContain("long usage");
+  });
+
+  it("records a bad file in failed and keeps going", async () => {
+    calls = [];
+    const { relay } = tabRelay({
+      "b.png": new BridgeError("validation_failed", "Corrupt image."),
+    });
+    const res = (await dispatchTool(relay, "swebsy_upload_asset", {
+      paths: [file("notes.txt"), "relative.png", b, a, join(tmp, "gone.png")],
+    })) as any;
+    expect(res.assets).toEqual({ "a.jpg": "/builder-assets/a.jpg" });
+    expect(Object.keys(res.failed)).toEqual([
+      "notes.txt",
+      "relative.png",
+      "b.png",
+      "gone.png",
+    ]);
+    expect(res.failed["notes.txt"]).toMatch(/Unsupported file type/);
+    expect(res.failed["relative.png"]).toMatch(/absolute path/);
+    expect(res.failed["b.png"]).toBe("Corrupt image.");
+    expect(res.failed["gone.png"]).toMatch(/Cannot read/);
+    // Only the two readable, allowed files reached the tab.
+    expect(calls).toHaveLength(2);
+  });
+
+  it("keeps the per-file 10 MB cap", async () => {
+    calls = [];
+    const big = file("big.png", "");
+    writeFileSync(big, Buffer.alloc(10 * 1024 * 1024 + 1));
+    const { relay } = tabRelay();
+    const res = (await dispatchTool(relay, "swebsy_upload_asset", {
+      paths: [big, a],
+    })) as any;
+    expect(res.failed["big.png"]).toMatch(/limit is 10 MB/);
+    expect(Object.keys(res.assets)).toEqual(["a.jpg"]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("stops sending once the tab is gone", async () => {
+    calls = [];
+    const { relay } = tabRelay({
+      "a.jpg": new BridgeError("not_connected", "No Studio tab."),
+    });
+    const res = (await dispatchTool(relay, "swebsy_upload_asset", {
+      paths: [a, b],
+    })) as any;
+    expect(calls).toHaveLength(1);
+    expect(res.failed).toEqual({
+      "a.jpg": "No Studio tab.",
+      "b.png": "Not uploaded: No Studio tab.",
+    });
+  });
+
+  it("stops on a busy or stalled tab and returns what landed", async () => {
+    for (const code of ["busy", "timeout"] as const) {
+      calls = [];
+      const { relay } = tabRelay({
+        "b.png": new BridgeError(code, `${code} tab`),
+      });
+      const res = (await dispatchTool(relay, "swebsy_upload_asset", {
+        paths: [a, b, font],
+      })) as any;
+      expect(calls).toHaveLength(2);
+      expect(res.assets).toEqual({ "a.jpg": "/builder-assets/a.jpg" });
+      expect(res.failed["Brand.woff2"]).toBe(`Not uploaded: ${code} tab`);
+    }
+  });
+
+  it("starts no new file once the time budget is spent", async () => {
+    calls = [];
+    let now = 1_000_000;
+    const spy = vi.spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      const { relay } = fakeRelay({
+        sendCommand: async (tool, args) => {
+          calls.push({ tool, args });
+          now += 99_500; // one slow upload eats the budget
+          return { src: "/s.jpg" };
+        },
+      });
+      const res = (await dispatchTool(relay, "swebsy_upload_asset", {
+        paths: [a, b],
+      })) as any;
+      expect(calls).toHaveLength(1);
+      expect(res.assets).toEqual({ "a.jpg": "/s.jpg" });
+      expect(res.failed["b.png"]).toMatch(/Not uploaded: time budget/);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("caps a stalled file at what is left of the call's budget", async () => {
+    let now = 1_000_000;
+    const spy = vi.spyOn(Date, "now").mockImplementation(() => now);
+    const sent: Array<{ timeout?: number; queueDeadline?: number }> = [];
+    try {
+      const { relay } = fakeRelay({
+        // Tab recovery (ensureTab) takes 30 s of the budget.
+        status: () => {
+          now += 30_000;
+          return {
+            connected: true,
+            busy: false,
+            settlingTimeout: false,
+            port: 37373,
+          };
+        },
+        sendCommand: async (_tool, _args, timeout, opts) => {
+          sent.push({ timeout, queueDeadline: opts?.queueDeadline });
+          now += timeout ?? 0; // the tab stalls until the command times out
+          throw new BridgeError("timeout", "The tab didn't answer.");
+        },
+      });
+      const res = (await dispatchTool(relay, "swebsy_upload_asset", {
+        paths: [a, b, font],
+      })) as any;
+      // Budget runs from the start of the call, not after recovery.
+      expect(sent).toEqual([
+        { timeout: 70_000, queueDeadline: 1_000_000 + 30_000 + 25_000 },
+      ]);
+      expect(now - 1_000_000).toBe(100_000);
+      expect(res.failed).toEqual({
+        "a.jpg": "The tab didn't answer.",
+        "b.png": expect.stringMatching(/^Not uploaded: time budget/),
+        "Brand.woff2": expect.stringMatching(/^Not uploaded: time budget/),
+      });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("never queues a file past the batch deadline", async () => {
+    let now = 1_000_000;
+    const spy = vi.spyOn(Date, "now").mockImplementation(() => now);
+    const sent: Array<{ timeout?: number; queueDeadline?: number }> = [];
+    try {
+      const { relay } = fakeRelay({
+        sendCommand: async (_tool, _args, timeout, opts) => {
+          sent.push({ timeout, queueDeadline: opts?.queueDeadline });
+          now += 90_000;
+          return { src: "/s.jpg" };
+        },
+      });
+      await dispatchTool(relay, "swebsy_upload_asset", { paths: [a, b] });
+      expect(sent[1]).toEqual({
+        timeout: 10_000,
+        queueDeadline: 1_000_000 + 100_000,
+      });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("uploads a repeated path once", async () => {
+    calls = [];
+    const { relay } = tabRelay();
+    await dispatchTool(relay, "swebsy_upload_asset", { paths: [a, a, a] });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("does not open Studio when no path could upload", async () => {
+    const opened: unknown[] = [];
+    const { relay, calls: sent } = fakeRelay({
+      status: () => ({
+        connected: false,
+        busy: false,
+        settlingTimeout: false,
+        port: 37373,
+      }),
+      startPairing: (o) => {
+        opened.push(o);
+        return { code: "c", port: 1 };
+      },
+    });
+    const res = (await dispatchTool(relay, "swebsy_upload_asset", {
+      paths: ["relative.png", join(tmp, "notes.txt")],
+    })) as any;
+    expect(opened).toHaveLength(0);
+    expect(sent).toHaveLength(0);
+    expect(Object.keys(res.failed)).toEqual(["relative.png", "notes.txt"]);
+  });
+
+  it("keys a repeated basename by its full path", async () => {
+    calls = [];
+    const other = join(mkdtempSync(join(tmpdir(), "swebsy-batch2-")), "a.jpg");
+    writeFileSync(other, "y");
+    const { relay } = tabRelay();
+    const res = (await dispatchTool(relay, "swebsy_upload_asset", {
+      paths: [a, other],
+    })) as any;
+    expect(Object.keys(res.assets)).toEqual(["a.jpg", other]);
+  });
+
+  it("rejects path + paths, an empty list, and more than 25", async () => {
+    const { relay, calls: sent } = fakeRelay();
+    await expect(
+      dispatchTool(relay, "swebsy_upload_asset", { path: a, paths: [b] })
+    ).rejects.toThrow(/not both/);
+    await expect(
+      dispatchTool(relay, "swebsy_upload_asset", { paths: [b], filename: "x" })
+    ).rejects.toThrow(/single `path` only/);
+    await expect(
+      dispatchTool(relay, "swebsy_upload_asset", { paths: [] })
+    ).rejects.toThrow(/non-empty/);
+    await expect(
+      dispatchTool(relay, "swebsy_upload_asset", {
+        paths: Array.from({ length: 26 }, () => a),
+      })
+    ).rejects.toThrow(/at most 25/);
+    expect(sent).toHaveLength(0);
+  });
+
+  it("leaves the single-path result untouched", async () => {
+    const tab = { assetId: "id", src: "/s.png", usage: "Use it on an image" };
+    const { relay } = fakeRelay({ sendCommand: async () => tab });
+    expect(
+      await dispatchTool(relay, "swebsy_upload_asset", { path: b })
+    ).toEqual(tab);
+  });
+});
+
 describe("automatic recovery when no tab is attached", () => {
   const NEW_BROKER = new Set(["pair_reuse", "cancel", "deadline"]);
   const off = { busy: false, settlingTimeout: false, port: 37373 };

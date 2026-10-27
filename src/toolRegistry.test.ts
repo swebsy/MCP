@@ -104,6 +104,17 @@ describe("toolRegistry", () => {
     }
   });
 
+  it("add_section takes html or component, neither required", () => {
+    const add = buildMcpTools().find((t) => t.name === "swebsy_add_section")!;
+    const props = add.inputSchema.properties as Record<
+      string,
+      { type?: string }
+    >;
+    expect(props.html?.type).toBe("string");
+    expect(props.component).toBeDefined();
+    expect(add.inputSchema.required).toEqual(["summary"]);
+  });
+
   it("includes the expected net-new tools", () => {
     const netNew = NET_NEW_TOOLS.map((t) => t.name);
     expect(netNew).toEqual([
@@ -325,6 +336,28 @@ describe("toolRegistry", () => {
       expect(t.annotations?.destructiveHint, t.name).toBe(
         DESTRUCTIVE_TOOLS.has(wire)
       );
+    }
+  });
+});
+
+describe("upload_asset schema", () => {
+  // JSON Schema `required` can't say "exactly one of path/paths" without a
+  // top-level oneOf, which several clients reject, so the description says it.
+  it("tells clients to pass path or paths (exactly one)", () => {
+    const tool = NET_NEW_TOOLS.find((t) => t.name === "swebsy_upload_asset")!;
+    const schema = tool.inputSchema as {
+      required?: string[];
+      oneOf?: unknown;
+      properties: Record<string, { description?: string }>;
+    };
+    expect(schema.oneOf).toBeUndefined();
+    expect(schema.required).toBeUndefined();
+    for (const text of [
+      tool.description,
+      schema.properties.path.description,
+      schema.properties.paths.description,
+    ]) {
+      expect(text).toContain("`path` or `paths` (exactly one)");
     }
   });
 });
