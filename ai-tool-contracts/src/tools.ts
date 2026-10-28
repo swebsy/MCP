@@ -856,7 +856,13 @@ export const TOOL_UPDATE_SETTINGS = {
               "so it locks styled sections to this template. NEVER use it to build a " +
               "repeated custom component (card, link block, tile) — make that a SYMBOL " +
               "styled with theme classes so it stays harvestable. Reserve custom CSS for " +
-              "genuinely global polish only.",
+              "genuinely global polish only. NEVER set type here (font-family, font-size, " +
+              "font-weight, font-style, letter-spacing, line-height, text-transform) on a " +
+              "class: that text's type disappears from the style panel. Fonts go in " +
+              "typography.fontFamily roles (a second display face in the free role, e.g. " +
+              "mono, applied per element with font-mono); size/weight/italic/tracking/" +
+              "case are utility classes on the element. Only bare-element defaults " +
+              "(body, h1-h6, p) inside @layer components may set type.",
           },
         },
         additionalProperties: true,
