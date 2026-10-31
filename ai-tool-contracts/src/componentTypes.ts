@@ -46,6 +46,7 @@ export const COMPONENT_TYPES = [
   "iframe",
   "audio",
   "google-map",
+  "image-compare",
   // Content
   "card",
   "card-media",
@@ -74,6 +75,11 @@ export const COMPONENT_TYPES = [
   "copy-button",
   "dark-mode-switch",
   "marquee",
+  // Accordion / FAQ (gjs-components/interactive/accordion.ts): native
+  // details/summary. A text-only summary is the `text` type instead.
+  "accordion",
+  "accordion-item",
+  "accordion-summary",
   // Forms
   "form",
   "input",
