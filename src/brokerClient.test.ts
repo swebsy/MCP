@@ -3,6 +3,8 @@ import { EventEmitter } from "node:events";
 import { WebSocket } from "ws";
 import { Broker } from "./broker.ts";
 import { BrokerClient } from "./brokerClient.ts";
+import { BridgeError } from "./errors.ts";
+import { dispatchTool } from "./server.ts";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const TEST_ORIGIN = "https://swebsy.test";
@@ -171,6 +173,32 @@ describe("BrokerClient", () => {
       error: { code: "no_selection", message: "nothing selected" },
     });
     await expect(done).rejects.toMatchObject({ code: "no_selection" });
+  });
+
+  it("keeps a tab error's reason through broker, client and server", async () => {
+    const { code } = await client.startPairing();
+    browser = await BrowserStub.connect(port);
+    browser.send({ type: "pair", code });
+    await browser.nextOfType("paired");
+
+    const done = dispatchTool(client, "swebsy_delete_section", {
+      targetId: "s2",
+    });
+    const cmd = await browser.nextOfType("cmd");
+    browser.send({
+      type: "res",
+      id: cmd.id,
+      ok: false,
+      error: { code: "stale_target", message: "gone", reason: "id_missing" },
+    });
+    const err = await done.catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BridgeError);
+    // The MCP server answers with exactly toJSON().
+    expect((err as BridgeError).toJSON()).toEqual({
+      code: "stale_target",
+      message: "gone",
+      reason: "id_missing",
+    });
   });
 
   it("feeds forwarded artifact frames into the receiver", async () => {

@@ -10,7 +10,12 @@ export type AgentErrorCode =
   | "not_connected" // no paired Studio tab is connected
   | "not_paired" // pairing frame rejected (bad/expired code)
   | "timeout" // command exceeded its per-command deadline
-  | "validation_failed" // tool args / settings patch rejected
+  | "validation_failed" // tool args / settings patch rejected (arguments only)
+  | "not_found" // a page, site, symbol, asset or template id named nothing
+  | "stale_target" // a well-formed targetId/targetPath the page no longer has
+  | "no_page_selected" // Studio has no page selected
+  | "not_ready" // Studio's asset storage isn't ready (or is bound to another site)
+  | "internal_error" // an unexpected failure inside Studio
   | "artifact_failed" // artifact stream failed (size cap, checksum, path)
   | "no_selection" // capture selectionOnly with nothing selected
   | "cancelled" // the agent cancelled the call before it finished
@@ -22,19 +27,27 @@ export type AgentErrorCode =
 export interface AgentError {
   code: AgentErrorCode;
   message: string;
+  /** Short fixed sub-code from Studio (analytics); optional on the wire. */
+  reason?: string;
 }
 
 export class BridgeError extends Error {
   readonly code: AgentErrorCode;
+  readonly reason?: string;
 
-  constructor(code: AgentErrorCode, message: string) {
+  constructor(code: AgentErrorCode, message: string, reason?: string) {
     super(message);
     this.name = "BridgeError";
     this.code = code;
+    this.reason = reason;
   }
 
   toJSON(): AgentError {
-    return { code: this.code, message: this.message };
+    return {
+      code: this.code,
+      message: this.message,
+      ...(this.reason ? { reason: this.reason } : {}),
+    };
   }
 }
 

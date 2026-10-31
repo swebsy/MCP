@@ -11,7 +11,7 @@
 
 import { WebSocket } from "ws";
 import { randomBytes } from "node:crypto";
-import { BridgeError } from "./errors.ts";
+import { BridgeError, type AgentError } from "./errors.ts";
 import { ensureBroker, type EnsureBrokerOptions } from "./ensureBroker.ts";
 import { readOrCreateAgentToken } from "./brokerAuth.ts";
 import { resolveBrokerPort } from "./ensureBroker.ts";
@@ -169,8 +169,8 @@ export class BrokerClient implements RelayApi {
       if (frame.ok) {
         req.resolve(frame.result);
       } else {
-        const e = frame.error as { code: string; message: string };
-        req.reject(new BridgeError(e.code as never, e.message));
+        const e = frame.error as AgentError;
+        req.reject(new BridgeError(e.code, e.message, e.reason));
       }
       return;
     }

@@ -376,7 +376,16 @@ export class Broker {
     this.releaseSlot();
     if (p.timedOut) return;
     if (frame.ok) p.resolve(frame.result);
-    else p.reject(new BridgeError(frame.error.code, frame.error.message));
+    else
+      p.reject(
+        new BridgeError(
+          frame.error.code,
+          frame.error.message,
+          typeof frame.error.reason === "string"
+            ? frame.error.reason
+            : undefined
+        )
+      );
   }
 
   private acquireSlot(
