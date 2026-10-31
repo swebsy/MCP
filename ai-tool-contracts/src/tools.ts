@@ -1357,6 +1357,17 @@ export const TOOL_COMMIT_DESIGN_DIRECTION = {
   },
 } as const;
 
+export const TOOL_PUBLISH = {
+  name: "publish",
+  description:
+    "Publish the open site to Swebsy Hosting, free, at its own swebsy.site address, and return the live URL. Call it ONLY after the user has said yes to publishing in this conversation, and ask again before every publish, a republish included: an earlier yes doesn't carry over. If it can't go live straight away (no account yet, a plan limit, something to check), nothing goes out yet: Studio opens its Publish screen and the result says what to tell the user. When it says Studio finishes publishing from there, don't call publish again; the site goes live once the user is done.",
+  input_schema: {
+    type: "object",
+    properties: {},
+    additionalProperties: false,
+  },
+} as const;
+
 export const ALL_TOOLS = [
   TOOL_REPLACE_PAGE_CONTENT,
   TOOL_COMMIT_DESIGN_DIRECTION,
@@ -1377,6 +1388,7 @@ export const ALL_TOOLS = [
   TOOL_CLARIFY_SCOPE,
   TOOL_GET_SKILL,
   TOOL_READ_PAGE,
+  TOOL_PUBLISH,
 ] as const;
 
 export type AIToolName = (typeof ALL_TOOLS)[number]["name"];

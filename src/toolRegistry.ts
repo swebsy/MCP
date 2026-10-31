@@ -55,6 +55,7 @@ export const AGENT_TOOL_ALLOWLIST = [
   "animate_page",
   "read_page",
   "get_skill",
+  "publish",
 ] as const satisfies readonly AIToolName[];
 
 export interface McpToolDef {
@@ -661,13 +662,18 @@ export const DESTRUCTIVE_TOOLS = new Set([
   "delete_symbol",
   "delete_asset",
   "replace_page_content",
+  // Puts the site in front of the public; the tool also asks for a fresh yes.
+  "publish",
 ]);
+/** Tools that reach outside Studio: a publish serves the site on the web. */
+export const OPEN_WORLD_TOOLS = new Set(["publish"]);
 const TITLE_OVERRIDES: Record<string, string> = {
   capture: "Take screenshot",
   get_skill: "Load guidance",
   list_skills: "List guidance topics",
   get_builder_guide: "Load builder guide",
   status: "Check connection",
+  publish: "Publish site",
 };
 
 function annotate(t: McpToolDef): McpToolDef {
@@ -682,7 +688,7 @@ function annotate(t: McpToolDef): McpToolDef {
     annotations: {
       readOnlyHint: readOnly,
       destructiveHint: DESTRUCTIVE_TOOLS.has(wire),
-      openWorldHint: false,
+      openWorldHint: OPEN_WORLD_TOOLS.has(wire),
       ...(readOnly && { idempotentHint: true }),
     },
   };
@@ -712,7 +718,12 @@ const LONG_TIMEOUT_TOOLS = new Set([
   "capture",
   "export",
   "upload_asset",
+  "publish", // exports the site and uploads every file
 ]);
+
+/** What the AI is told when a publish outlives its budget: it may still land. */
+export const PUBLISH_TIMEOUT_MESSAGE =
+  "Publishing is still running in Studio. Don't call swebsy_publish again: call swebsy_status in a minute, and tab.hosting.liveUrl shows the address once the site is live.";
 // export_template installs the template + captures per-block light/dark
 // thumbnails through a headless browser — the slowest tool by far.
 export const EXPORT_TEMPLATE_TIMEOUT_MS = 300_000;

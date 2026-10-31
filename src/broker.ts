@@ -25,6 +25,7 @@ import type { AddressInfo } from "node:net";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import { BridgeError, type AgentError } from "./errors.ts";
+import { PUBLISH_TIMEOUT_MESSAGE } from "./toolRegistry.ts";
 import {
   BROKER_FEATURES,
   DEFAULT_PORT,
@@ -336,7 +337,9 @@ export class Broker {
           giveUp(
             new BridgeError(
               "timeout",
-              `Command "${tool}" timed out after ${timeoutMs}ms. It may still have run — read the page before retrying. The editor stays locked until the tab responds or disconnects.`
+              tool === "publish"
+                ? PUBLISH_TIMEOUT_MESSAGE
+                : `Command "${tool}" timed out after ${timeoutMs}ms. It may still have run — read the page before retrying. The editor stays locked until the tab responds or disconnects.`
             )
           ),
         timeoutMs

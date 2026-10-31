@@ -78,9 +78,10 @@ guidance on animation, page composition, copywriting, forms, and nav.
 | Tool | What it does |
 |---|---|
 | `swebsy_start_pairing` | Begin a pairing session; returns `pairUrl`. |
-| `swebsy_status` | Bridge state, site, selected page, `editorReady`, theme summary. |
+| `swebsy_status` | Bridge state, site, selected page, `editorReady`, theme summary, `hosting` (live URL, unpublished changes). |
 | `swebsy_list_sites` | Saved sites, newest first — **metadata only**, no content. |
 | `swebsy_open_site` / `swebsy_create_site` / `swebsy_rename_site` | Open, create (blank or from a template), rename (internal name only, not SEO title). |
+| `swebsy_publish` | Put the open site live on Swebsy Hosting and return its URL. Offer it once the build is done; call it only after the user says yes, every time. Anything that needs the user (sign-up, email code, a plan choice) opens in Studio and comes back as one sentence to relay; when that sentence says Studio finishes it, don't call it again: poll `swebsy_status` (`tab.hosting.liveUrl`). |
 | `swebsy_list_templates` | Installed templates with names, tags, fonts, previews. |
 | `swebsy_list_pages` / `swebsy_select_page` | Enumerate and switch pages. Never guess a page name. |
 | `swebsy_list_blocks` | The pre-built block catalog (ids + labels) for `insert_block`. |

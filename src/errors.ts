@@ -18,6 +18,7 @@ export type AgentErrorCode =
   | "internal_error" // an unexpected failure inside Studio
   | "artifact_failed" // artifact stream failed (size cap, checksum, path)
   | "no_selection" // capture selectionOnly with nothing selected
+  | "not_published" // publish needs the user in Studio (account, limit, review)
   | "cancelled" // the agent cancelled the call before it finished
   | "busy" // queued past its deadline behind another command; never ran
   | "tab_unresponsive" // tab is attached but stopped answering heartbeats

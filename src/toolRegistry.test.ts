@@ -9,8 +9,10 @@ import {
   DESTRUCTIVE_TOOLS,
   DEV_AUTHORING_TOOLS,
   NET_NEW_TOOLS,
+  OPEN_WORLD_TOOLS,
   READ_ONLY_TOOLS,
   sharedMcpTools,
+  timeoutFor,
   toWireName,
 } from "./toolRegistry.ts";
 
@@ -328,8 +330,10 @@ describe("toolRegistry", () => {
     }
     for (const t of tools) {
       expect(t.title, t.name).toMatch(/^[A-Z][a-z ]+$/);
-      expect(t.annotations?.openWorldHint, t.name).toBe(false);
       const wire = toWireName(t.name);
+      expect(t.annotations?.openWorldHint, t.name).toBe(
+        OPEN_WORLD_TOOLS.has(wire)
+      );
       expect(t.annotations?.readOnlyHint, t.name).toBe(
         READ_ONLY_TOOLS.has(wire)
       );
@@ -359,5 +363,25 @@ describe("upload_asset schema", () => {
     ]) {
       expect(text).toContain("`path` or `paths` (exactly one)");
     }
+  });
+
+  it("publish is shared, on both surfaces, flagged and on the long budget", () => {
+    // One schema and one behavior: the allowlisted contract tool, never a
+    // bridge-only copy.
+    expect(AGENT_TOOL_ALLOWLIST).toContain("publish");
+    expect(NET_NEW_TOOLS.map((t) => t.name)).not.toContain("swebsy_publish");
+    for (const tools of [buildMcpTools(), buildRemoteMcpTools()]) {
+      const publish = tools.find((t) => t.name === "swebsy_publish");
+      expect(publish?.title).toBe("Publish site");
+      expect(publish?.annotations).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        openWorldHint: true,
+      });
+      expect(publish?.description).toContain(
+        "ONLY after the user has said yes"
+      );
+    }
+    expect(timeoutFor("publish")).toBe(120_000);
   });
 });
