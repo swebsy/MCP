@@ -508,7 +508,7 @@ export const DEV_AUTHORING_TOOLS: readonly McpToolDef[] = [
   {
     name: "swebsy_mark_block",
     description:
-      "DEV-ONLY template authoring: mark the component at `targetId` or `targetPath` (from read_page) as a harvestable block, or update/remove its annotation. Marked sections become catalog blocks when the template is exported (see swebsy_export_template). Selection rule: mark the smallest meaningful designed composition, not an atomic content element. Never mark a lone image, video, heading, paragraph, divider, spacer, or a wrapper whose only meaningful child is one of those. A valid block combines at least two complementary content/layout elements (for example image + copy, heading + CTA, or label + stats), or is a self-contained structured component such as a navbar, form, gallery, card grid, pricing table, or stats grid. Prefer the nearest parent that captures the complete reusable composition. Avoid nested or overlapping markers unless the child is independently reusable and meaningfully different. Conventions: `localId` is a short kebab-case pattern name describing the section (e.g. 'hero-split', 'pricing-three-tier'); `description` is one sentence stating layout + style, shown on the catalog card; every `tags` entry is ONLY the canonical single-word vocabulary key (for example 'stats', never 'stats — Numbers, facts, or metrics'). Vocabulary descriptions are explanatory UI/help text and must never be copied into a tag value. Known aliases are auto-corrected to canonical form (returned as `correctedTags`), while unknown tags fail with the allowed list. Typically you mark every distinct reusable section of a page, then export once.",
+      "DEV-ONLY template authoring: mark the component at `targetId` or `targetPath` (from read_page) as a harvestable block, or update/remove its annotation. Marked sections become catalog blocks when the template is exported (see swebsy_export_template). Selection rule: mark the smallest meaningful designed composition, not an atomic content element. Never mark a lone image, video, heading, paragraph, divider, spacer, or a wrapper whose only meaningful child is one of those. A valid block combines at least two complementary content/layout elements (for example image + copy, heading + CTA, or label + stats), or is a self-contained structured component such as a navbar, form, gallery, card grid, pricing table, or stats grid. Prefer the nearest parent that captures the complete reusable composition. Avoid nested or overlapping markers unless the child is independently reusable and meaningfully different. Conventions: `localId` is a short kebab-case pattern name describing the section (e.g. 'hero-split', 'pricing-three-tier'); `title` is a 2–5 word card label naming what the section is ('Three-tier plans', 'Map with opening hours'), unique within its category; `quality` (1–5) is how glad a small-business owner would be to insert it as is, and sorts the catalog; `description` is one sentence stating layout + style, shown on the catalog card; every `tags` entry is ONLY the canonical single-word vocabulary key (for example 'stats', never 'stats — Numbers, facts, or metrics'). Vocabulary descriptions are explanatory UI/help text and must never be copied into a tag value. Known aliases are auto-corrected to canonical form (returned as `correctedTags`), while unknown tags fail with the allowed list. Typically you mark every distinct reusable section of a page, then export once.",
     inputSchema: {
       type: "object",
       properties: {
@@ -540,6 +540,19 @@ export const DEV_AUTHORING_TOOLS: readonly McpToolDef[] = [
           type: "string",
           description:
             "One-sentence catalog-card summary of the section's layout and style.",
+        },
+        title: {
+          type: "string",
+          maxLength: 40,
+          description:
+            "2–5 word card title naming the section (e.g. 'Three-tier plans'). Required for a block that ships.",
+        },
+        quality: {
+          type: "integer",
+          minimum: 1,
+          maximum: 5,
+          description:
+            "1–5: how ready-to-use the section looks (5 polished, 3 fine, 1 broken). Sorts the catalog.",
         },
         remove: {
           type: "boolean",
