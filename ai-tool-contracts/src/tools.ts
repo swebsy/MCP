@@ -972,7 +972,7 @@ export const TOOL_UPDATE_SETTINGS = {
       advanced: {
         type: "object",
         description:
-          "RAW site code, the last resort. Use globalTheme.customTailwindConfig for CSS and seo.jsonLd for structured data. Each field REPLACES the previous value, so read the current settings and send the full code. It runs on every visitor's page, and the Studio flags every agent change to it.",
+          "RAW site code, the last resort. Use globalTheme.customTailwindConfig for CSS and seo.jsonLd for structured data. Each field REPLACES the previous value, so read the current settings and send the full code. It runs on every visitor's page, and the Studio warns the user about any agent change that can run script (all of it except plain CSS).",
         properties: {
           customHeadCode: {
             type: "string",
